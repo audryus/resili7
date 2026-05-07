@@ -2,113 +2,12 @@ package breaker
 
 import (
 	"errors"
-	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"codeberg.org/audryus/resili7"
 )
 
 var ErrCircuitOpen = errors.New("circuit breaker is open")
-
-// NewBreakerMiddleware creates a middleware that protects the handler using a circuit breaker.
-// It tracks failure rates and opens the circuit if a threshold is reached, 
-// preventing further requests from reaching failing downstream services.
-func NewBreakerMiddleware(cb *CircuitBreaker) resili7.Middleware {
-	return func(next resili7.Handler) resili7.Handler {
-		return func(req resili7.Request) (*http.Response, error) {
-
-			var err error
-			var resp *http.Response
-
-			// FAST PATH — CLOSED
-			// Optimized for the common case where the circuit is closed.
-			if State(cb.state.Load()) == StateClosed {
-				cb.rotateWindow(req.Now)
-				cb.requests.Add(1)
-
-				resp, err = next(req)
-
-				if cb.isFailure(err) {
-					cb.failures.Add(1)
-				}
-
-				total := cb.requests.Load()
-				fail := cb.failures.Load()
-
-				// Check if the failure threshold has been exceeded.
-				if total >= cb.minRequests {
-					// Using fixed-point comparison: (fail / total) >= threshold
-					// Equivalent to: fail * 1024 >= threshold * total
-					if int64(fail)*1024 >= cb.errorThreshold*int64(total) {
-
-						cb.mu.Lock()
-						if State(cb.state.Load()) == StateClosed {
-							cb.state.Store(uint32(StateOpen))
-							cb.lastFailTime = time.Now().UnixNano()
-						}
-						cb.mu.Unlock()
-					}
-				}
-
-				return resp, err
-			}
-
-			// SLOW PATH — OPEN or HALF-OPEN
-			// Handles state transitions and recovery testing.
-			cb.mu.Lock()
-
-			state := State(cb.state.Load())
-			now := time.Now().UnixNano()
-
-			if state == StateOpen {
-				// Check if the cooldown period has passed to move to Half-Open.
-				if now-cb.lastFailTime >= int64(cb.openTimeout) {
-					cb.state.Store(uint32(StateHalfOpen))
-					state = StateHalfOpen
-				} else {
-					cb.mu.Unlock()
-					return resp, ErrCircuitOpen
-				}
-			}
-
-			if state == StateHalfOpen {
-				// Only allow one request at a time during Half-Open testing.
-				if cb.halfOpenInFlight {
-					cb.mu.Unlock()
-					return resp, ErrCircuitOpen
-				}
-				cb.halfOpenInFlight = true
-			}
-
-			cb.mu.Unlock()
-
-			resp, err = next(req)
-
-			cb.mu.Lock()
-			defer cb.mu.Unlock()
-
-			if State(cb.state.Load()) == StateHalfOpen {
-				cb.halfOpenInFlight = false
-
-				if cb.isFailure(err) {
-					// If the trial request fails, move back to Open.
-					cb.state.Store(uint32(StateOpen))
-					cb.lastFailTime = time.Now().UnixNano()
-				} else {
-					// If the trial request succeeds, reset to Closed.
-					cb.state.Store(uint32(StateClosed))
-					cb.requests.Store(0)
-					cb.failures.Store(0)
-					cb.windowStart.Store(time.Now().UnixNano())
-				}
-			}
-
-			return resp, err
-		}
-	}
-}
 
 // State represents the current operational mode of the circuit breaker.
 type State uint32
@@ -191,7 +90,7 @@ type CircuitBreaker struct {
 	windowStart      atomic.Int64    // Unix Nano timestamp of the current window start.
 	mu               sync.Mutex      // Protects state transitions and lastFailTime.
 	state            atomic.Uint32   // Current State (Closed, Open, Half-Open).
-	halfOpenInFlight bool            // Ensures only one request is tested during Half-Open.
+	HalfOpenInFlight bool            // Ensures only one request is tested during Half-Open.
 }
 
 // NewBreaker creates a new CircuitBreaker with default or custom options.
@@ -214,6 +113,13 @@ func NewBreaker(opts ...Option) *CircuitBreaker {
 	return cb
 }
 
+func (cb *CircuitBreaker) Lock() {
+	cb.mu.Lock()
+}
+func (cb *CircuitBreaker) Unlock() {
+	cb.mu.Unlock()
+}
+
 // rotateWindow resets the statistical window if the duration has expired.
 // Uses Atomic Compare-and-Swap (CAS) to avoid locking during statistics collection.
 func (cb *CircuitBreaker) rotateWindow(now int64) {
@@ -231,4 +137,102 @@ func (cb *CircuitBreaker) rotateWindow(now int64) {
 
 func (cb *CircuitBreaker) isFailure(err error) bool {
 	return cb.errorClassifier(err)
+}
+
+// ResultAction representa uma operação que devolve um resultado tipado.
+// Elimina a necessidade de ponteiros side-channel (que causam escape para o Heap).
+type ResultAction[R any] interface {
+	Execute() (R, error)
+	Now() int64
+}
+
+// ExecuteWithResult é idêntico ao ExecuteAction mas retorna (R, error).
+// Isso permite que o caller receba o resultado por valor, sem alocação no Heap.
+func ExecuteWithResult[R any, A ResultAction[R]](cb *CircuitBreaker, action A) (resp R, err error) {
+
+	// FAST PATH — CLOSED
+	// Optimized for the common case where the circuit is closed.
+	if State(cb.state.Load()) == StateClosed {
+		cb.rotateWindow(action.Now())
+		cb.requests.Add(1)
+
+		resp, err = action.Execute()
+
+		if cb.isFailure(err) {
+			cb.failures.Add(1)
+		}
+
+		total := cb.requests.Load()
+		fail := cb.failures.Load()
+
+		// Check if the failure threshold has been exceeded.
+		if total >= cb.minRequests {
+			// Using fixed-point comparison: (fail / total) >= threshold
+			// Equivalent to: fail * 1024 >= threshold * total
+			if int64(fail)*1024 >= cb.errorThreshold*int64(total) {
+
+				cb.Lock()
+				if State(cb.state.Load()) == StateClosed {
+					cb.state.Store(uint32(StateOpen))
+					cb.lastFailTime = time.Now().UnixNano()
+				}
+				cb.Unlock()
+			}
+		}
+
+		return resp, err
+	}
+
+	// SLOW PATH — OPEN or HALF-OPEN
+	// Handles state transitions and recovery testing.
+	cb.Lock()
+
+	state := State(cb.state.Load())
+	now := time.Now().UnixNano()
+
+	if state == StateOpen {
+		// Check if the cooldown period has passed to move to Half-Open.
+		if now-cb.lastFailTime >= int64(cb.openTimeout) {
+			cb.state.Store(uint32(StateHalfOpen))
+			state = StateHalfOpen
+		} else {
+			cb.Unlock()
+			return resp, ErrCircuitOpen
+		}
+	}
+
+	if state == StateHalfOpen {
+		// Only allow one request at a time during Half-Open testing.
+		if cb.HalfOpenInFlight {
+			cb.Unlock()
+			return resp, ErrCircuitOpen
+		}
+		cb.HalfOpenInFlight = true
+	}
+
+	cb.Unlock()
+
+	resp, err = action.Execute()
+
+	cb.Lock()
+	defer cb.Unlock()
+
+	if State(cb.state.Load()) == StateHalfOpen {
+		cb.HalfOpenInFlight = false
+
+		if cb.isFailure(err) {
+			// If the trial request fails, move back to Open.
+			cb.state.Store(uint32(StateOpen))
+			cb.lastFailTime = time.Now().UnixNano()
+		} else {
+			// If the trial request succeeds, reset to Closed.
+			cb.state.Store(uint32(StateClosed))
+			cb.requests.Store(0)
+			cb.failures.Store(0)
+			cb.windowStart.Store(time.Now().UnixNano())
+		}
+	}
+
+	return resp, err
+
 }

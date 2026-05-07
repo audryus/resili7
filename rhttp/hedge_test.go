@@ -1,4 +1,4 @@
-package hedge_test
+package rhttp_test
 
 import (
 	"net/http"
@@ -7,8 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"codeberg.org/audryus/resili7"
-	"codeberg.org/audryus/resili7/hedge"
+	"codeberg.org/audryus/resili7/rhttp"
 )
 
 // TestHedgeWithVariableLatency verifies that hedging successfully reduces tail latency
@@ -29,13 +28,13 @@ func TestHedgeWithVariableLatency(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client, err := resili7.NewClient(resili7.Pipeline{
+	client, err := rhttp.NewClient(rhttp.Pipeline{
 		HttpCient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
 		// Hedge delay is set to 50ms.
 		// Since the first attempt takes 100ms, the hedge attempt will fire at 50ms.
-		Hedge: hedge.NewHedgeMiddleware(50*time.Millisecond, 2),
+		Hedge: rhttp.NewHedgeMiddleware(50*time.Millisecond, 2),
 	})
 
 	if err != nil {
@@ -72,12 +71,12 @@ func TestHedgeWithVariableLatency(t *testing.T) {
 // TestHedgeDisabledWithInvalidParams ensures that the middleware gracefully degrades
 // to a simple pass-through if parameters are invalid.
 func TestHedgeDisabledWithInvalidParams(t *testing.T) {
-	client, _ := resili7.NewClient(resili7.Pipeline{
-		HttpHandler: func(r resili7.Request) (*http.Response, error) {
+	client, _ := rhttp.NewClient(rhttp.Pipeline{
+		HttpHandler: func(r rhttp.Request) (*http.Response, error) {
 			return &http.Response{StatusCode: 200}, nil
 		},
 		// Invalid parameters: 0 delay or <=1 max attempts should disable hedging.
-		Hedge: hedge.NewHedgeMiddleware(0, 1),
+		Hedge: rhttp.NewHedgeMiddleware(0, 1),
 	})
 
 	req, _ := http.NewRequest(http.MethodGet, "http://localhost", nil)
@@ -90,17 +89,17 @@ func TestHedgeDisabledWithInvalidParams(t *testing.T) {
 // BenchmarkHedge measures the overhead of the hedging middleware itself.
 // Since hedging involves starting goroutines, it is expected to have at least 1 allocation.
 //
-// BenchmarkHedge/Hedge_Overhead-12         	 2154380	       543.5 ns/op	      64 B/op	       1 allocs/op
+// BenchmarkHedge/Hedge_Overhead-12         	 2185689	       527.1 ns/op	      64 B/op	       1 allocs/op
 func BenchmarkHedge(b *testing.B) {
 	req, _ := http.NewRequest(http.MethodGet, "http://localhost", nil)
 	dummyResp := &http.Response{StatusCode: 200}
 
-	client, _ := resili7.NewClient(resili7.Pipeline{
-		HttpHandler: func(r resili7.Request) (*http.Response, error) {
+	client, _ := rhttp.NewClient(rhttp.Pipeline{
+		HttpHandler: func(r rhttp.Request) (*http.Response, error) {
 			return dummyResp, nil
 		},
 		// Use a high delay so hedging doesn't actually trigger, measuring baseline overhead.
-		Hedge: hedge.NewHedgeMiddleware(10*time.Second, 2),
+		Hedge: rhttp.NewHedgeMiddleware(10*time.Second, 2),
 	})
 
 	b.Run("Hedge_Overhead", func(b *testing.B) {

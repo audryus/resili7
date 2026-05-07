@@ -1,18 +1,15 @@
 package hedge
 
 import (
-	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"codeberg.org/audryus/resili7"
 )
 
-// result wraps an HTTP response or an error.
+// result wraps a response or an error.
 // It is used to communicate results from parallel hedge attempts back to the main goroutine.
 type result struct {
-	resp *http.Response
+	resp any
 	err  error
 }
 
@@ -29,6 +26,12 @@ var statePool = sync.Pool{
 			resCh: make(chan result, 1),
 		}
 	},
+}
+
+// ResultAction representa uma operação que devolve um resultado tipado.
+// Elimina a necessidade de ponteiros side-channel (que causam escape para o Heap).
+type ResultAction[R any] interface {
+	Execute() (R, error)
 }
 
 // timerPool provides a pool of *time.Timer objects to reduce allocation pressure.
@@ -56,68 +59,66 @@ func putTimer(t *time.Timer) {
 	timerPool.Put(t)
 }
 
-// NewHedgeMiddleware creates a middleware that implements the Hedged Requests pattern.
-// If the primary request is slow (takes longer than 'delay'), additional parallel attempts
-// are fired. The first successful response (or the last failure) is returned.
-func NewHedgeMiddleware(delay time.Duration, maxAttempts int) resili7.Middleware {
-	return func(next resili7.Handler) resili7.Handler {
-		return func(req resili7.Request) (*http.Response, error) {
-			// Fast path: if hedging is disabled or invalid params are provided.
-			if maxAttempts <= 1 || delay <= 0 {
-				return next(req)
-			}
+// ExecuteWithResult é idêntico ao ExecuteAction mas retorna (R, error).
+// Isso permite que o caller receba o resultado por valor, sem alocação no Heap.
+func ExecuteWithResult[R any, A ResultAction[R]](delay time.Duration, maxAttempts int, action A) (resp R, err error) {
+	// Fast path: if hedging is disabled or invalid params are provided.
+	if maxAttempts <= 1 || delay <= 0 {
+		return action.Execute()
+	}
 
-			// Acquire state from pool to maintain zero-allocation goal.
-			state := statePool.Get().(*hedgeState)
-			state.active.Store(1) // Initial count for the main coordinating loop.
+	// Acquire state from pool to maintain zero-allocation goal.
+	state := statePool.Get().(*hedgeState)
+	state.active.Store(1) // Initial count for the main coordinating loop.
 
-			// Start the first (primary) attempt.
+	// Start the first (primary) attempt.
+	state.active.Add(1)
+	go hedgeAttempt(action, state)
+
+	var finalRes result
+	var timer *time.Timer
+
+	// Loop to start additional attempts if the primary one is slow.
+	for i := 1; i < maxAttempts; i++ {
+		timer = getTimer(delay)
+
+		select {
+		case finalRes = <-state.resCh:
+			// A result was received before the delay; stop the timer and exit.
+			putTimer(timer)
+			goto finish
+		case <-timer.C:
+			// Delay exceeded; fire another attempt.
+			putTimer(timer)
+			timer = nil
+
 			state.active.Add(1)
-			go hedgeAttempt(next, req, state)
-
-			var finalRes result
-			var timer *time.Timer
-
-			// Loop to start additional attempts if the primary one is slow.
-			for i := 1; i < maxAttempts; i++ {
-				timer = getTimer(delay)
-
-				select {
-				case finalRes = <-state.resCh:
-					// A result was received before the delay; stop the timer and exit.
-					putTimer(timer)
-					goto finish
-				case <-timer.C:
-					// Delay exceeded; fire another attempt.
-					putTimer(timer)
-					timer = nil
-
-					newReq := req // Request is passed by value (safe copy).
-					state.active.Add(1)
-					go hedgeAttempt(next, newReq, state)
-				}
-			}
-
-			// All attempts fired; wait for the first result from any of them.
-			finalRes = <-state.resCh
-
-		finish:
-			// Cleanup: decrement the reference count. If zero, all goroutines finished; recycle state.
-			if state.active.Add(-1) == 0 {
-				recycleState(state)
-			}
-			return finalRes.resp, finalRes.err
+			go hedgeAttempt(action, state)
 		}
 	}
+
+	// All attempts fired; wait for the first result from any of them.
+	finalRes = <-state.resCh
+
+finish:
+	// Cleanup: decrement the reference count. If zero, all goroutines finished; recycle state.
+	if state.active.Add(-1) == 0 {
+		recycleState(state)
+	}
+
+	if finalRes.resp != nil {
+		resp = finalRes.resp.(R)
+	}
+	return resp, finalRes.err
 }
 
 // hedgeAttempt executes a single attempt and reports the result back to the state channel.
-func hedgeAttempt(next resili7.Handler, req resili7.Request, state *hedgeState) {
-	resp, err := next(req)
+func hedgeAttempt[R any, A ResultAction[R]](action A, state *hedgeState) {
+	resp, err := action.Execute()
 
 	// Attempt to send the result. If resCh is full, another goroutine already won.
 	select {
-	case state.resCh <- result{resp, err}:
+	case state.resCh <- result{resp: resp, err: err}:
 	default:
 	}
 
