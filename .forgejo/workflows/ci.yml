@@ -37,10 +37,3 @@ jobs:
 
       - name: Run tests
         run: go test -v -race -coverprofile=coverage.out ./...
-
-      - name: Upload coverage
-        if: matrix.go-version == '1.26.1'
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: coverage.out

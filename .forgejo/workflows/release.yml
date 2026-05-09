@@ -36,7 +36,7 @@ jobs:
   # 2. Create the GitHub Release with changelog
   # ──────────────────────────────────────────────
   release:
-    name: Create GitHub Release
+    name: Create Codeberg Release
     runs-on: self-hosted
     container:
       image: node:20-bookworm
