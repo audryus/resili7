@@ -13,6 +13,11 @@ import (
 func NewTimeoutMiddleware(d time.Duration) Middleware {
 	return func(next Handler) Handler {
 		return func(req Request) (*http.Response, error) {
+			// Propagate the deadline to the request struct so subsequent handlers can use it.
+			if req.RequestDeadline == 0 {
+				req.RequestDeadline = req.Now + int64(d)
+			}
+
 			return timeout.ExecuteWithResult(d, action{
 				h:   next,
 				req: req,

@@ -12,12 +12,12 @@ import (
 	"codeberg.org/audryus/resili7/rhttp"
 )
 
-func TestNewClient(t *testing.T) {
+func TestHttpNewClient(t *testing.T) {
 	l := limiter.NewLimiter(limiter.WithInitialLimit(10))
 	cb := breaker.NewBreaker()
 
 	pipeline := rhttp.Pipeline{
-		HttpCient:      http.DefaultClient,
+		HttpClient:     http.DefaultClient,
 		Timeout:        rhttp.NewTimeoutMiddleware(1 * time.Second),
 		Retry:          rhttp.NewRetryMiddleware(&retry.RetryPolicy[*http.Response]{MaxAttempts: 3}),
 		Hedge:          rhttp.NewHedgeMiddleware(100*time.Millisecond, 2),
@@ -35,8 +35,8 @@ func TestNewClient(t *testing.T) {
 	}
 }
 
-// TestPipelineErrors verifies that errors from the handler correctly propagate through the chain.
-func TestPipelineErrors(t *testing.T) {
+// TestHttpPipelineErrors verifies that errors from the handler correctly propagate through the chain.
+func TestHttpPipelineErrors(t *testing.T) {
 	expectedErr := errors.New("custom failure")
 	client, _ := rhttp.NewClient(rhttp.Pipeline{
 		HttpHandler: func(r rhttp.Request) (*http.Response, error) {

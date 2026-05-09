@@ -11,10 +11,10 @@ import (
 	"codeberg.org/audryus/resili7/rhttp"
 )
 
-// TestLimiter verifies the end-to-end behavior of the limiter middleware.
+// TestHttpLimiter verifies the end-to-end behavior of the limiter middleware.
 // It uses a mock server and confirms that requests are rejected with ErrLimited
 // when the concurrency capacity is exceeded.
-func TestLimiter(t *testing.T) {
+func TestHttpLimiter(t *testing.T) {
 	// Create a limiter with capacity for only 1 concurrent request.
 	l := limiter.NewLimiter(limiter.WithInitialLimit(1))
 
@@ -27,7 +27,7 @@ func TestLimiter(t *testing.T) {
 	defer srv.Close()
 
 	client, _ := rhttp.NewClient(rhttp.Pipeline{
-		HttpCient: &http.Client{
+		HttpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
 		Limiter: rhttp.NewLimiterMiddleware(l),
@@ -42,11 +42,11 @@ func TestLimiter(t *testing.T) {
 	}
 }
 
-// BenchmarkLimiter measures the baseline overhead of the adaptive limiter.
+// BenchmarkHttpLimiter measures the baseline overhead of the adaptive limiter.
 // This is designed to be highly efficient and zero-allocation on the hot path.
 //
-// BenchmarkLimiter/Limiter_Overhead-12         	15625302	        75.28 ns/op	       0 B/op	       0 allocs/op
-func BenchmarkLimiter(b *testing.B) {
+// BenchmarkHttpLimiter/Limiter_Overhead-12         	15625302	        75.28 ns/op	       0 B/op	       0 allocs/op
+func BenchmarkHttpLimiter(b *testing.B) {
 	l := limiter.NewLimiter(limiter.WithInitialLimit(1000000))
 	dummyResp := &http.Response{StatusCode: 200}
 

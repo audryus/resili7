@@ -8,7 +8,7 @@ import (
 var ErrClientCreation = errors.New("client creation failed: requires an http.Client or a custom Handler")
 
 // HttPHandler wraps a standard http.Client.Do call into the resilience Handler interface.
-func HttPHandler(c *http.Client) Handler {
+func HttpHandler(c *http.Client) Handler {
 	return func(r Request) (*http.Response, error) {
 		return c.Do(r.Req)
 	}
@@ -17,7 +17,7 @@ func HttPHandler(c *http.Client) Handler {
 // Pipeline defines the configuration for building a resilience chain.
 // The order of execution follows: Limiter -> CircuitBreaker -> Timeout -> Retry -> Hedge -> Handler.
 type Pipeline struct {
-	HttpCient      *http.Client // The underlying HTTP client to use.
+	HttpClient     *http.Client // The underlying HTTP client to use.
 	HttpHandler    Handler      // An optional custom handler (useful for testing or non-HTTP protocols).
 	Timeout        Middleware   // Global timeout enforcement.
 	Retry          Middleware   // Sequential retry logic with backoff.
@@ -32,8 +32,8 @@ func NewClient(pipeline Pipeline) (*Client, error) {
 	var h Handler
 	if pipeline.HttpHandler != nil {
 		h = pipeline.HttpHandler
-	} else if pipeline.HttpCient != nil {
-		h = HttPHandler(pipeline.HttpCient)
+	} else if pipeline.HttpClient != nil {
+		h = HttpHandler(pipeline.HttpClient)
 	} else {
 		return nil, ErrClientCreation
 	}

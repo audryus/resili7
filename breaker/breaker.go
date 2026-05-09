@@ -79,18 +79,18 @@ func defaultClassifier(err error) bool {
 // CircuitBreaker implements the Circuit Breaker pattern for fault tolerance.
 // It uses atomic operations for the hot path and a mutex for state transitions.
 type CircuitBreaker struct {
-	lastFailTime     int64           // Absolute Unix Nano timestamp of the last failure in Open state.
-	errorClassifier  ErrorClassifier // Function to identify retryable failures.
-	openTimeout      time.Duration   // Cooldown period before trying recovery.
-	windowDuration   time.Duration   // Duration of the sliding window for statistics.
-	minRequests      uint64          // Minimum traffic required before evaluating threshold.
-	errorThreshold   int64           // Failure rate threshold scaled by 1024 (fixed-point).
-	requests         atomic.Uint64   // Counter for total requests in the current window.
-	failures         atomic.Uint64   // Counter for failed requests in the current window.
-	windowStart      atomic.Int64    // Unix Nano timestamp of the current window start.
-	mu               sync.Mutex      // Protects state transitions and lastFailTime.
-	state            atomic.Uint32   // Current State (Closed, Open, Half-Open).
-	HalfOpenInFlight bool            // Ensures only one request is tested during Half-Open.
+	errorClassifier  ErrorClassifier
+	lastFailTime     int64
+	openTimeout      time.Duration
+	windowDuration   time.Duration
+	minRequests      uint64
+	errorThreshold   int64
+	requests         atomic.Uint64
+	failures         atomic.Uint64
+	windowStart      atomic.Int64
+	mu               sync.Mutex
+	state            atomic.Uint32
+	HalfOpenInFlight bool
 }
 
 // NewBreaker creates a new CircuitBreaker with default or custom options.

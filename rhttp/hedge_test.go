@@ -10,9 +10,9 @@ import (
 	"codeberg.org/audryus/resili7/rhttp"
 )
 
-// TestHedgeWithVariableLatency verifies that hedging successfully reduces tail latency
+// TestHttpHedgeWithVariableLatency verifies that hedging successfully reduces tail latency
 // by firing parallel attempts when the primary request is slow.
-func TestHedgeWithVariableLatency(t *testing.T) {
+func TestHttpHedgeWithVariableLatency(t *testing.T) {
 	var count atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		attempt := count.Add(1)
@@ -29,7 +29,7 @@ func TestHedgeWithVariableLatency(t *testing.T) {
 	defer srv.Close()
 
 	client, err := rhttp.NewClient(rhttp.Pipeline{
-		HttpCient: &http.Client{
+		HttpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
 		// Hedge delay is set to 50ms.
@@ -68,9 +68,9 @@ func TestHedgeWithVariableLatency(t *testing.T) {
 	}
 }
 
-// TestHedgeDisabledWithInvalidParams ensures that the middleware gracefully degrades
+// TestHttpHedgeDisabledWithInvalidParams ensures that the middleware gracefully degrades
 // to a simple pass-through if parameters are invalid.
-func TestHedgeDisabledWithInvalidParams(t *testing.T) {
+func TestHttpHedgeDisabledWithInvalidParams(t *testing.T) {
 	client, _ := rhttp.NewClient(rhttp.Pipeline{
 		HttpHandler: func(r rhttp.Request) (*http.Response, error) {
 			return &http.Response{StatusCode: 200}, nil
@@ -86,11 +86,11 @@ func TestHedgeDisabledWithInvalidParams(t *testing.T) {
 	}
 }
 
-// BenchmarkHedge measures the overhead of the hedging middleware itself.
+// BenchmarkHttpHedge measures the overhead of the hedging middleware itself.
 // Since hedging involves starting goroutines, it is expected to have at least 1 allocation.
 //
-// BenchmarkHedge/Hedge_Overhead-12         	 2185689	       527.1 ns/op	      64 B/op	       1 allocs/op
-func BenchmarkHedge(b *testing.B) {
+// BenchmarkHttpHedge/Hedge_Overhead-12         	 2185689	       527.1 ns/op	      64 B/op	       1 allocs/op
+func BenchmarkHttpHedge(b *testing.B) {
 	req, _ := http.NewRequest(http.MethodGet, "http://localhost", nil)
 	dummyResp := &http.Response{StatusCode: 200}
 

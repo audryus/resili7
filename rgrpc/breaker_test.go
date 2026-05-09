@@ -9,11 +9,11 @@ import (
 	"google.golang.org/grpc"
 )
 
-// BenchmarkCircuitBreak measures the total performance and memory allocations of the circuit breaker middleware for gRPC.
+// BenchmarkGrpcCircuitBreak measures the total performance and memory allocations of the circuit breaker middleware for gRPC.
 // The goal of resili7 is to achieve zero allocations on the hot path.
 //
-// BenchmarkCircuitBreak/With_Circuit_Breaker-12         	15622276	        73.78 ns/op	       0 B/op	       0 allocs/op
-func BenchmarkCircuitBreak(b *testing.B) {
+// BenchmarkGrpcCircuitBreak/With_Circuit_Breaker-12         	15622276	        73.78 ns/op	       0 B/op	       0 allocs/op
+func BenchmarkGrpcCircuitBreak(b *testing.B) {
 	cb := breaker.NewBreaker()
 	pipeline := rgrpc.Pipeline{
 		CircuitBreaker: rgrpc.NewBreakerMiddleware(cb),

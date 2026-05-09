@@ -11,9 +11,9 @@ import (
 	"codeberg.org/audryus/resili7/rhttp"
 )
 
-// TestRetry verifies that the middleware correctly retries failed HTTP requests
+// TestHttpRetry verifies that the middleware correctly retries failed HTTP requests
 // based on status codes and respects the retry budget.
-func TestRetry(t *testing.T) {
+func TestHttpRetry(t *testing.T) {
 	count := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		count++
@@ -30,7 +30,7 @@ func TestRetry(t *testing.T) {
 	}
 
 	client, err := rhttp.NewClient(rhttp.Pipeline{
-		HttpCient: &http.Client{
+		HttpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
 		Retry: rhttp.NewRetryMiddleware(&retry.RetryPolicy[*http.Response]{
@@ -57,9 +57,9 @@ func TestRetry(t *testing.T) {
 	}
 }
 
-// TestRetryPerTry verifies the per-attempt timeout logic.
+// TestHttpRetryPerTry verifies the per-attempt timeout logic.
 // It ensures that slow individual attempts are interrupted even if the global timeout allows more time.
-func TestRetryPerTry(t *testing.T) {
+func TestHttpRetryPerTry(t *testing.T) {
 	count := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		count++
@@ -75,7 +75,7 @@ func TestRetryPerTry(t *testing.T) {
 	}
 
 	client, err := rhttp.NewClient(rhttp.Pipeline{
-		HttpCient: &http.Client{
+		HttpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
 		Retry: rhttp.NewRetryMiddleware(&retry.RetryPolicy[*http.Response]{
@@ -100,7 +100,7 @@ func TestRetryPerTry(t *testing.T) {
 	}
 }
 
-func TestRetryPolicy(t *testing.T) {
+func TestHttpRetryPolicy(t *testing.T) {
 	tests := []struct {
 		err      error
 		resp     *http.Response
@@ -149,11 +149,11 @@ func TestRetryPolicy(t *testing.T) {
 	}
 }
 
-// BenchmarkRetry measures the memory overhead of the retry middleware.
+// BenchmarkHttpRetry measures the memory overhead of the retry middleware.
 // This middleware is designed to be zero-allocation during execution.
 //
-// BenchmarkRetry/With_Retry-12         	16394527	        72.16 ns/op	       0 B/op	       0 allocs/op
-func BenchmarkRetry(b *testing.B) {
+// BenchmarkHttpRetry/With_Retry-12         	16394527	        72.16 ns/op	       0 B/op	       0 allocs/op
+func BenchmarkHttpRetry(b *testing.B) {
 	req, _ := http.NewRequest(http.MethodGet, "http://localhost", nil)
 
 	budget := retry.NewBudget(0.5)

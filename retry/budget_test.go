@@ -6,9 +6,9 @@ import (
 	"codeberg.org/audryus/resili7/retry"
 )
 
-// TestBudget_AllowRetry verifies that retries are allowed only when
+// TestBudgetAllowRetry verifies that retries are allowed only when
 // the ratio of successes to retries is within the configured limit.
-func TestBudget_AllowRetry(t *testing.T) {
+func TestBudgetAllowRetry(t *testing.T) {
 	// Ratio of 0.1 (10%)
 	b := retry.NewBudget(0.1)
 
@@ -41,9 +41,9 @@ func TestBudget_AllowRetry(t *testing.T) {
 	}
 }
 
-// TestBudget_Decay verifies that halving the historical data maintains
+// TestBudgetDecay verifies that halving the historical data maintains
 // proportional quotas and prevents stale data from dominating future decisions.
-func TestBudget_Decay(t *testing.T) {
+func TestBudgetDecay(t *testing.T) {
 	b := retry.NewBudget(0.5)
 
 	for range 10 {

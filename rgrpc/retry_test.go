@@ -15,9 +15,9 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// TestRetry verifies that the middleware correctly retries failed gRPC requests
+// TestGrpcRetry verifies that the middleware correctly retries failed gRPC requests
 // based on status codes and respects the retry budget.
-func TestRetry(t *testing.T) {
+func TestGrpcRetry(t *testing.T) {
 	count := 0
 	lis, stop := fakeServer(t, func() error {
 		count++
@@ -62,8 +62,8 @@ func TestRetry(t *testing.T) {
 	}
 }
 
-// TestRetryPerTry verifies the per-attempt timeout logic.
-func TestRetryPerTry(t *testing.T) {
+// TestGrpcRetryPerTry verifies the per-attempt timeout logic.
+func TestGrpcRetryPerTry(t *testing.T) {
 	count := 0
 	lis, stop := fakeServer(t, func() error {
 		count++
@@ -98,7 +98,7 @@ func TestRetryPerTry(t *testing.T) {
 	}
 }
 
-func TestRetryPolicy(t *testing.T) {
+func TestGrpcRetryPolicy(t *testing.T) {
 	tests := []struct {
 		name     string
 		err      error
@@ -123,11 +123,11 @@ func TestRetryPolicy(t *testing.T) {
 	}
 }
 
-// BenchmarkRetry measures the memory overhead of the retry middleware.
+// BenchmarkGrpcRetry measures the memory overhead of the retry middleware.
 // This middleware is designed to be zero-allocation during execution.
 //
-// BenchmarkRetry/Retry_Overhead-12         	11231556	       107.5 ns/op	       0 B/op	       0 allocs/op
-func BenchmarkRetry(b *testing.B) {
+// BenchmarkGrpcRetry/Retry_Overhead-12         	11231556	       107.5 ns/op	       0 B/op	       0 allocs/op
+func BenchmarkGrpcRetry(b *testing.B) {
 	pipeline := rgrpc.Pipeline{
 		Retry: rgrpc.NewRetryMiddleware(&retry.RetryPolicy[rgrpc.Request]{
 			MaxAttempts: 2,

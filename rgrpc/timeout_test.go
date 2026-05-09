@@ -13,9 +13,9 @@ import (
 	"google.golang.org/grpc/interop/grpc_testing"
 )
 
-// TestTimeout verifies that the global timeout correctly interrupts slow requests
+// TestGrpcTimeout verifies that the global timeout correctly interrupts slow requests
 // and returns the expected ErrTimeout.
-func TestTimeout(t *testing.T) {
+func TestGrpcTimeout(t *testing.T) {
 	lis, stop := fakeServer(t, func() error {
 		time.Sleep(2 * time.Second)
 		return nil
@@ -52,11 +52,11 @@ func TestTimeout(t *testing.T) {
 	}
 }
 
-// BenchmarkTimeout measures the baseline overhead of the timeout middleware.
+// BenchmarkGrpcTimeout measures the baseline overhead of the timeout middleware.
 // This middleware is designed to be zero-allocation when the deadline is not exceeded.
 //
-// BenchmarkTimeout/Timeout_Overhead-12         	11311341	       106.4 ns/op	       0 B/op	       0 allocs/op
-func BenchmarkTimeout(b *testing.B) {
+// BenchmarkGrpcTimeout/Timeout_Overhead-12         	11311341	       106.4 ns/op	       0 B/op	       0 allocs/op
+func BenchmarkGrpcTimeout(b *testing.B) {
 	mockInvoker := func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
 		return nil
 	}

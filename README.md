@@ -122,6 +122,49 @@ func main() {
 }
 ```
 
+### WebSocket
+
+```go
+package main
+
+import (
+	"time"
+
+	"codeberg.org/audryus/resili7/rws"
+	"codeberg.org/audryus/resili7/rws/limiter"
+	"codeberg.org/audryus/resili7/rws/retry"
+	"github.com/gorilla/websocket"
+)
+
+func main() {
+	pipeline := rws.Pipeline{
+		Connector: func() (*websocket.Conn, error) {
+			return websocket.DefaultDialer.Dial("wss://api.example.com/ws", nil)
+		},
+		Timeout: rws.NewTimeoutMiddleware(rws.TimeoutConfig{
+			Read:    5 * time.Second,
+			Session: 30 * time.Minute,
+		}),
+		Retry: rws.NewRetryMiddleware(retry.NewRetryPolicy(
+			retry.WithMaxAttempts(3),
+			retry.WithTryDeadline(1 * time.Second),
+		)),
+		Limiter: rws.NewLimiterMiddleware(limiter.NewLimiter()),
+	}
+
+	client, err := rws.NewClient(pipeline)
+	if err != nil {
+		panic(err)
+	}
+
+	resp, err := client.Send(rws.Request{
+		MessageType: websocket.TextMessage,
+		Data:       []byte("ping"),
+	})
+	_ = resp
+}
+```
+
 ---
 
 ## Pipeline Architecture
@@ -134,6 +177,24 @@ The execution order is strictly enforced to provide optimal protection:
 4.  **Retry**: Sequential logic for transient failures.
 5.  **Hedge**: Parallel attempts for tail-latency optimization.
 6.  **Handler**: The final network execution.
+
+---
+
+## WebSocket Architecture
+
+WebSocket differs fundamentally from HTTP/gRPC:
+
+| Aspect | HTTP/gRPC | WebSocket |
+|--------|-----------|------------|
+| **Connection** | Request-scoped | Long-lived (persistent) |
+| **Retry** | Resend message | Resend message (WsHandler) → reconnects on failure (PersistentHandler) |
+| **Hedge** | Parallel requests | Parallel dial |
+| **Timeout** | Logic-level | Native I/O (`SetReadDeadline`) |
+
+**Key components:**
+- **`Connector`**: Factory function to establish new WebSocket connections.
+- **`WsHandler`**: Performs a single write-read roundtrip (ping-pong style).
+- **`PersistentHandler`**: Manages the long-lived connection, reuses it, and reconnects on error.
 
 ---
 

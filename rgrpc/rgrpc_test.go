@@ -40,13 +40,12 @@ func fakeServer(t *testing.T, onCall func() error) (net.Listener, func()) {
 	return lis, srv.Stop
 }
 
-// TestIntegrationWithServer tests the real flow of Dial -> Request -> Retry
-func TestIntegrationWithServer(t *testing.T) {
+// TestGrpcIntegrationWithServer tests the real flow of Dial -> Request -> Retry
+func TestGrpcIntegrationWithServer(t *testing.T) {
 	callCount := 0
 
 	lis, stop := fakeServer(t, func() error {
 		callCount++
-		t.Logf("Server called %d time(s)\n", callCount)
 
 		if callCount < 3 {
 			// Fail on first 2 attempts (simulates unstable server)

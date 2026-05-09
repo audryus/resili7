@@ -22,7 +22,7 @@ func TestTimeout(t *testing.T) {
 	defer srv.Close()
 
 	client, err := rhttp.NewClient(rhttp.Pipeline{
-		HttpCient: &http.Client{
+		HttpClient: &http.Client{
 			// The internal http.Client timeout should be higher than our middleware timeout
 			// to test our custom middleware enforcement.
 			Timeout: 10 * time.Second,
@@ -42,11 +42,11 @@ func TestTimeout(t *testing.T) {
 	}
 }
 
-// BenchmarkTimeout measures the baseline overhead of the timeout middleware.
+// BenchmarkHttpTimeout measures the baseline overhead of the timeout middleware.
 // This middleware is designed to be zero-allocation when the deadline is not exceeded.
 //
-// BenchmarkTimeout/Timeout_Overhead-12         	32296514	        37.75 ns/op	       0 B/op	       0 allocs/op
-func BenchmarkTimeout(b *testing.B) {
+// BenchmarkHttpTimeout/Timeout_Overhead-12         	32296514	        37.75 ns/op	       0 B/op	       0 allocs/op
+func BenchmarkHttpTimeout(b *testing.B) {
 	req, _ := http.NewRequest(http.MethodGet, "http://localhost", nil)
 	dummyResp := &http.Response{StatusCode: 200}
 

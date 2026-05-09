@@ -12,9 +12,9 @@ import (
 	"google.golang.org/grpc/interop/grpc_testing"
 )
 
-// TestHedgeWithVariableLatency verifies that hedging successfully reduces tail latency
+// TestGrpcHedgeWithVariableLatency verifies that hedging successfully reduces tail latency
 // by firing parallel attempts when the primary request is slow.
-func TestHedgeWithVariableLatency(t *testing.T) {
+func TestGrpcHedgeWithVariableLatency(t *testing.T) {
 	var count atomic.Int32
 
 	lis, stop := fakeServer(t, func() error {
@@ -71,9 +71,9 @@ func TestHedgeWithVariableLatency(t *testing.T) {
 	}
 }
 
-// TestHedgeDisabledWithInvalidParams ensures that the middleware gracefully degrades
+// TestGrpcHedgeDisabledWithInvalidParams ensures that the middleware gracefully degrades
 // to a simple pass-through if parameters are invalid.
-func TestHedgeDisabledWithInvalidParams(t *testing.T) {
+func TestGrpcHedgeDisabledWithInvalidParams(t *testing.T) {
 	lis, stop := fakeServer(t, func() error {
 		return nil
 	})
@@ -104,11 +104,11 @@ func TestHedgeDisabledWithInvalidParams(t *testing.T) {
 	}
 }
 
-// BenchmarkHedge measures the overhead of the hedging middleware itself.
+// BenchmarkGrpcHedge measures the overhead of the hedging middleware itself.
 // Since hedging involves starting goroutines, it is expected to have at least 1 allocation.
 //
-// BenchmarkHedge/Hedge_Overhead-12         	 1609233	       744.8 ns/op	     304 B/op	       3 allocs/op
-func BenchmarkHedge(b *testing.B) {
+// BenchmarkGrpcHedge/Hedge_Overhead-12         	 1609233	       744.8 ns/op	     304 B/op	       3 allocs/op
+func BenchmarkGrpcHedge(b *testing.B) {
 	mockInvoker := func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
 		return nil
 	}

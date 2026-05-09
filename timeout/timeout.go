@@ -43,7 +43,7 @@ func ExecuteWithResult[R any, A ResultAction[R]](d time.Duration, action A) (res
 	// Post-execution check: even if the handler succeeded, if it finished after the deadline,
 	// we return ErrTimeout to ensure strict timing guarantees.
 	// Note: We call time.Now() here to get the most accurate finish time.
-	if err == nil && time.Now().UnixNano() > requestDeadline {
+	if time.Now().UnixNano() > requestDeadline {
 		return resp, ErrTimeout
 	}
 

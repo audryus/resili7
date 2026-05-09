@@ -8,11 +8,11 @@ import (
 	"codeberg.org/audryus/resili7/rhttp"
 )
 
-// BenchmarkCircuitBreak measures the total performance and memory allocations of the circuit breaker middleware.
+// BenchmarkHttpCircuitBreak measures the total performance and memory allocations of the circuit breaker middleware.
 // The goal of resili7 is to achieve near-zero allocations (typically 1-2 per request due to goroutines).
 //
-// BenchmarkCircuitBreak/With_Circuit_Breaker-12         	29280568	        40.79 ns/op	       0 B/op	       0 allocs/op
-func BenchmarkCircuitBreak(b *testing.B) {
+// BenchmarkHttpCircuitBreak/With_Circuit_Breaker-12         	29280568	        40.79 ns/op	       0 B/op	       0 allocs/op
+func BenchmarkHttpCircuitBreak(b *testing.B) {
 	req, _ := http.NewRequest(http.MethodGet, "http://localhost", nil)
 
 	cb := breaker.NewBreaker()
