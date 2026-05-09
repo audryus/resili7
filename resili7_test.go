@@ -49,6 +49,7 @@ func BenchmarkHttpFullStack(b *testing.B) {
 		Hedge:          rhttp.NewHedgeMiddleware(100*time.Millisecond, 2),
 		Limiter:        rhttp.NewLimiterMiddleware(l),
 		CircuitBreaker: rhttp.NewBreakerMiddleware(cb),
+		Classifier:     rhttp.NewClassifierMiddleware(),
 	})
 
 	req, _ := http.NewRequest(http.MethodGet, "http://localhost", nil)

@@ -45,17 +45,13 @@ func ExecuteWithResult[R any, A ResultAction[R]](policy *RetryPolicy[R], action 
 	budget := policy.Budget
 	perTryTimeout := int64(policy.TryDeadline)
 
-	// Calculate the per-try deadline once per request start.
-	var tryDeadline int64
-	if perTryTimeout > 0 {
-		tryDeadline = action.Now() + perTryTimeout
-	}
 	now := action.Now()
 
 	for attempt := range maxAttempts {
-		// Enforce per-try timeout before starting the attempt.
-		if tryDeadline > 0 && now > tryDeadline {
-			return resp, ErrTimeout
+		// Calculate the per-try deadline for this specific attempt.
+		var tryDeadline int64
+		if perTryTimeout > 0 {
+			tryDeadline = now + perTryTimeout
 		}
 
 		// Execute the next handler in the chain.
@@ -63,6 +59,11 @@ func ExecuteWithResult[R any, A ResultAction[R]](policy *RetryPolicy[R], action 
 
 		// Update cached time after a potentially slow network call.
 		now = time.Now().UnixNano()
+
+		// Enforce per-try timeout before starting the attempt.
+		if tryDeadline > 0 && now > tryDeadline {
+			return resp, ErrTimeout
+		}
 
 		// Success condition: No error and status code is successful (< 400).
 		if action.IsSuccess(resp, err) {

@@ -1,6 +1,7 @@
 # resili7
 
-**resili7** is a high-performance, zero-allocation resilience pipeline for Go. Designed for ultra-low latency services, it provides a robust suite of fault-tolerance patterns with minimal CPU and memory overhead.
+**resili7** is a high-performance, zero-allocation resilience pipeline for Go.
+Designed for ultra-low latency services, it provides fault-tolerance patterns with minimal CPU and memory overhead.
 
 [![Go Report Card](https://goreportcard.com/badge/codeberg.org/audryus/resili7)](https://goreportcard.com/report/codeberg.org/audryus/resili7)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
@@ -15,22 +16,22 @@
 
 ## Why resili7?
 
-Most resilience libraries introduce significant overhead through interface boxing, excessive `time.Now()` calls, and heap allocations. **resili7** is built from the ground up to be:
+**resili7** is built from the ground up to be:
 
-- **Zero-Allocation**: Achieves near-zero allocations in the hot-path through resource pooling and pointer-free request propagation.
-- **Clock Optimized**: Captures the system time only once per request entry, sharing it across the entire pipeline.
-- **Floating-Point Free**: Uses fixed-point arithmetic (10-bit scaling) for all adaptive algorithms (Limiter, Breaker, Budget).
-- **Context Aware**: Enforces timeouts at the network level without sacrificing memory efficiency.
+- **Near-Zero Allocation**: Near-zero allocations in the hot-path through resource pooling.
+- **Clock Optimized**: Captures system time only once per request entry.
+- **Floating-Point Free**: Fixed-point arithmetic (10-bit scaling) for adaptive algorithms.
+- **Context Aware**: Enforces timeouts at the network level without memory overhead.
 
 ---
 
 ## Key Features
 
-- **Adaptive Limiter**: BBR-inspired concurrency control that probes for bandwidth and detects congestion via RTT analysis.
-- **Circuit Breaker**: High-performance state machine (Closed, Open, Half-Open) with statistical sliding windows.
-- **Hedged Requests**: Fire multiple parallel attempts for slow requests and take the first successful result.
-- **Sequential Retries**: Configurable backoff strategies and a **Retry Budget** to prevent cascading failures (retry storms).
-- **Global & Per-Try Timeouts**: Strict timing guarantees enforced through efficient deadline checking and context propagation.
+- **Adaptive Limiter**: BBR-inspired concurrency control via RTT analysis.
+- **Circuit Breaker**: High-performance state machine (Closed, Open, Half-Open).
+- **Hedged Requests**: Parallel attempts for tail-latency optimization.
+- **Sequential Retries**: Configurable backoff with **Retry Budget** to prevent retry storms.
+- **Global & Per-Try Timeouts**: Strict timing guarantees via deadline checking.
 
 ---
 
@@ -42,141 +43,26 @@ go get codeberg.org/audryus/resili7
 
 ---
 
-## Quick Start
+## Examples
 
-### HTTP
-
-```go
-package main
-
-import (
-	"net/http"
-	"time"
-
-	"codeberg.org/audryus/resili7/rhttp"
-	"codeberg.org/audryus/resili7/rhttp/limiter"
-	"codeberg.org/audryus/resili7/rhttp/retry"
-	"codeberg.org/audryus/resili7/rhttp/timeout"
-)
-
-func main() {
-	pipeline := rhttp.Pipeline{
-		HttpCient: http.DefaultClient,
-		Timeout:   rhttp.NewTimeoutMiddleware(5 * time.Second),
-		Retry: rhttp.NewRetryMiddleware(retry.NewRetryPolicy(
-			retry.WithMaxAttempts(3),
-			retry.WithTryDeadline(1 * time.Second),
-		)),
-		Limiter: rhttp.NewLimiterMiddleware(limiter.NewLimiter()),
-	}
-
-	client, err := rhttp.NewClient(pipeline)
-	if err != nil {
-		panic(err)
-	}
-
-	req, _ := http.NewRequest("GET", "https://api.example.com", nil)
-	resp, err := client.Do(req)
-	_ = resp
-}
-```
-
-### gRPC
-
-```go
-package main
-
-import (
-	"context"
-	"time"
-
-	"codeberg.org/audryus/resili7/rgrpc"
-	"codeberg.org/audryus/resili7/rgrpc/limiter"
-	"codeberg.org/audryus/resili7/rgrpc/retry"
-	"codeberg.org/audryus/resili7/rgrpc/timeout"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-)
-
-func main() {
-	pipeline := rgrpc.Pipeline{
-		Timeout: rgrpc.NewTimeoutMiddleware(5 * time.Second),
-		Retry: rgrpc.NewRetryMiddleware(retry.NewRetryPolicy(
-			retry.WithMaxAttempts(3),
-			retry.WithTryDeadline(1 * time.Second),
-		)),
-		Limiter: rgrpc.NewLimiterMiddleware(limiter.NewLimiter()),
-	}
-
-	conn, err := grpc.NewClient(
-		"localhost:50051",
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithUnaryInterceptor(rgrpc.NewUnaryClientInterceptor(pipeline)),
-	)
-	if err != nil {
-		panic(err)
-	}
-	defer conn.Close()
-
-	_ = conn
-}
-```
-
-### WebSocket
-
-```go
-package main
-
-import (
-	"time"
-
-	"codeberg.org/audryus/resili7/rws"
-	"codeberg.org/audryus/resili7/rws/limiter"
-	"codeberg.org/audryus/resili7/rws/retry"
-	"github.com/gorilla/websocket"
-)
-
-func main() {
-	pipeline := rws.Pipeline{
-		Connector: func() (*websocket.Conn, error) {
-			return websocket.DefaultDialer.Dial("wss://api.example.com/ws", nil)
-		},
-		Timeout: rws.NewTimeoutMiddleware(rws.TimeoutConfig{
-			Read:    5 * time.Second,
-			Session: 30 * time.Minute,
-		}),
-		Retry: rws.NewRetryMiddleware(retry.NewRetryPolicy(
-			retry.WithMaxAttempts(3),
-			retry.WithTryDeadline(1 * time.Second),
-		)),
-		Limiter: rws.NewLimiterMiddleware(limiter.NewLimiter()),
-	}
-
-	client, err := rws.NewClient(pipeline)
-	if err != nil {
-		panic(err)
-	}
-
-	resp, err := client.Send(rws.Request{
-		MessageType: websocket.TextMessage,
-		Data:       []byte("ping"),
-	})
-	_ = resp
-}
-```
+| Protocol | Location | Description |
+|----------|----------|-------------|
+| HTTP | `examples/http/http.go` | Full pipeline with all middlewares |
+| gRPC | `examples/grpc/grpc.go` | Unary calls with retry and breaker |
+| WebSocket | `examples/ws/ws.go` | Persistent connections with reconnect |
 
 ---
 
 ## Pipeline Architecture
 
-The execution order is strictly enforced to provide optimal protection:
+Execution order is strictly enforced for optimal protection:
 
-1.  **Limiter**: Rejects excess traffic immediately.
-2.  **Circuit Breaker**: Isolates failing downstream services.
-3.  **Timeout (Global)**: Ensures the total operation stays within bounds.
-4.  **Retry**: Sequential logic for transient failures.
-5.  **Hedge**: Parallel attempts for tail-latency optimization.
-6.  **Handler**: The final network execution.
+1. **Limiter** — Rejects excess traffic immediately
+2. **Circuit Breaker** — Isolates failing downstream services
+3. **Timeout (Global)** — Ensures total operation stays within bounds
+4. **Retry** — Sequential logic for transient failures
+5. **Hedge** — Parallel attempts for tail-latency optimization
+6. **Handler** — Final network execution
 
 ---
 
@@ -185,36 +71,38 @@ The execution order is strictly enforced to provide optimal protection:
 WebSocket differs fundamentally from HTTP/gRPC:
 
 | Aspect | HTTP/gRPC | WebSocket |
-|--------|-----------|------------|
+|--------|-----------|-----------|
 | **Connection** | Request-scoped | Long-lived (persistent) |
-| **Retry** | Resend message | Resend message (WsHandler) → reconnects on failure (PersistentHandler) |
+| **Retry** | Resend message | Reconnect on failure |
 | **Hedge** | Parallel requests | Parallel dial |
 | **Timeout** | Logic-level | Native I/O (`SetReadDeadline`) |
 
 **Key components:**
-- **`Connector`**: Factory function to establish new WebSocket connections.
-- **`WsHandler`**: Performs a single write-read roundtrip (ping-pong style).
-- **`PersistentHandler`**: Manages the long-lived connection, reuses it, and reconnects on error.
+
+- **`Connector`**: Factory function to establish new connections.
+- **`WsHandler`**: Single write-read roundtrip (ping-pong style).
+- **`PersistentHandler`**: Manages long-lived connection, reconnects on error.
 
 ---
 
-## Performance (Benchmark)
+## Performance
 
-Running the `BenchmarkFullStack` with all middlewares enabled on a modern CPU:
+Benchmark results on a modern CPU (almost all middlewares enabled):
 
-| Metric | Result |
-| :--- | :--- |
-| **Latency** | **~780 ns/op** |
-| **Allocations** | **1 alloc/op** (due to Hedge goroutine) |
-| **Memory** | **80 B/op** |
+| Protocol | Latency | Memory | Allocs |
+|----------|---------|--------|--------|
+| **HTTP** | ~922 ns/op | 64 B/op | 1 alloc |
+| **gRPC** | ~1,377 ns/op | 304 B/op | 3 allocs |
+| **WebSocket** | ~235 ns/op | 0 B/op | 0 allocs |
 
-To run benchmarks yourself:
+Run your own benchmarks:
+
 ```bash
 make profile
 ```
 
 > [!TIP]
-> **Zero-Alloc Guarantee:** Use `make check-escape` to verify that no request-scoped data escapes to the heap.
+> **Near-Zero Alloc:** Use `make check-escape` to verify that no request-scoped data escapes to the heap.
 
 ---
 
@@ -226,4 +114,3 @@ make profile
 ## License
 
 [MIT](./LICENSE)
-

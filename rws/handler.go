@@ -9,7 +9,7 @@ import (
 
 // Response wraps the WebSocket message with its type and payload.
 type Response struct {
-	Data       []byte
+	Data        []byte
 	MessageType int
 }
 
@@ -22,9 +22,9 @@ type Request struct {
 	URL             string          // Target WebSocket URL (for dial/hedge).
 	Data            []byte          // Message payload.
 	TimeoutConfig   TimeoutConfig   // Per-request timeout configuration.
-	MessageType     int            // WebSocket message type (TextMessage, BinaryMessage, etc.).
-	Now             int64          // Cached Unix Nano timestamp (set once at pipeline entry).
-	RequestDeadline int64          // Absolute Unix Nano timestamp for session deadline.
+	MessageType     int             // WebSocket message type (TextMessage, BinaryMessage, etc.).
+	Now             int64           // Cached Unix Nano timestamp (set once at pipeline entry).
+	RequestDeadline int64           // Absolute Unix Nano timestamp for session deadline.
 }
 
 // Handler is the functional interface for executing a Request.

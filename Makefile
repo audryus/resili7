@@ -2,7 +2,7 @@
 # Run all tests in the repository once to ensure correctness.
 # Using -count=1 to bypass test caching and get fresh results.
 test:
-	go test -count=1 -v ./...
+	go test -count=1 -v ./... 
 	
 # Analyzes memory allocation and heap escapes.
 # This is crucial to verify our "zero-allocation" goal in the hot-path.

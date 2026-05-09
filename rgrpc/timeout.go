@@ -12,6 +12,9 @@ import (
 func NewTimeoutMiddleware(d time.Duration) Middleware {
 	return func(next Handler) Handler {
 		return func(req Request) error {
+			if req.RequestDeadline == 0 {
+				req.RequestDeadline = req.Now + int64(d)
+			}
 			return timeout.Execute(d, action{
 				h:   next,
 				req: req,

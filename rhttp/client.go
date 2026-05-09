@@ -24,6 +24,7 @@ type Pipeline struct {
 	Hedge          Middleware   // Parallel hedging strategy.
 	Limiter        Middleware   // Rate limiting or concurrency control.
 	CircuitBreaker Middleware   // Fault tolerance and failure isolation.
+	Classifier     Middleware
 }
 
 // NewClient assembles a resilience pipeline into a functional Client.
@@ -55,6 +56,10 @@ func NewClient(pipeline Pipeline) (*Client, error) {
 
 	if pipeline.CircuitBreaker != nil {
 		h = pipeline.CircuitBreaker(h)
+	}
+
+	if pipeline.Classifier != nil {
+		h = pipeline.Classifier(h)
 	}
 
 	if pipeline.Limiter != nil {
