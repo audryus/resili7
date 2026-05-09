@@ -8,8 +8,8 @@ on:
 
 jobs:
   test:
-    name: Test (Go ${{ matrix.go-version }})
     runs-on: self-hosted
+    name: Test (Go ${{ matrix.go-version }})
     container:
       image: node:20-bookworm
 
