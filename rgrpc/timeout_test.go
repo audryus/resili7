@@ -26,23 +26,21 @@ func TestTimeout(t *testing.T) {
 		Timeout: rgrpc.NewTimeoutMiddleware(1 * time.Second),
 	}
 
-	myInterceptor := rgrpc.NewUnaryClientInterceptor(pipeline)
-
-	// O Dial precisa saber o endereço que o listener pegou (lis.Addr())
+	// Dial needs to know the address that the listener grabbed (lis.Addr())
 	conn, err := grpc.NewClient(
 		lis.Addr().String(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithUnaryInterceptor(myInterceptor),
+		grpc.WithUnaryInterceptor(rgrpc.NewUnaryClientInterceptor(pipeline)),
 	)
 	if err != nil {
-		t.Fatalf("dial fail: %v", err)
+		t.Fatalf("dial failed: %v", err)
 	}
 	defer conn.Close()
 
-	// 4. Fazer a chamada real
+	// Make the actual call
 	client := grpc_testing.NewTestServiceClient(conn)
 
-	// Chamada vazia (Empty é um tipo do pacote grpc_testing)
+	// Empty call (Empty is a type from the grpc_testing package)
 	_, err = client.EmptyCall(context.Background(), &grpc_testing.Empty{})
 
 	if err == nil {

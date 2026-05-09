@@ -7,8 +7,9 @@ import (
 
 var ErrTimeout = errors.New("request timeout")
 
-// ResultAction representa uma operação que devolve um resultado tipado.
-// Elimina a necessidade de ponteiros side-channel (que causam escape para o Heap).
+// ResultAction represents a typed operation that returns a result.
+// The generic return value enables pass-by-value semantics, avoiding heap allocations
+// from pointer-based side-channels in the hot path.
 type ResultAction[R any] interface {
 	Execute() (R, error)
 	Now() int64
@@ -20,8 +21,8 @@ func Execute[R any, A ResultAction[R]](d time.Duration, action A) (err error) {
 	return err
 }
 
-// ExecuteWithResult é idêntico ao ExecuteAction mas retorna (R, error).
-// Isso permite que o caller receba o resultado por valor, sem alocação no Heap.
+// ExecuteWithResult executes the action with timeout enforcement.
+// Returns (R, error) to support pass-by-value semantics for zero-allocation in the hot path.
 func ExecuteWithResult[R any, A ResultAction[R]](d time.Duration, action A) (resp R, err error) {
 	now := action.Now()
 	requestDeadline := action.RequestDeadline()

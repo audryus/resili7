@@ -3,7 +3,7 @@ package retry
 import "sync/atomic"
 
 // Budget implements a retry budget mechanism to prevent "retry storms".
-// It tracks successes and retries to ensure that the ratio of retries 
+// It tracks successes and retries to ensure that the ratio of retries
 // does not exceed a specified percentage of total traffic.
 type Budget struct {
 	success atomic.Uint64

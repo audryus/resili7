@@ -44,35 +44,81 @@ go get codeberg.org/audryus/resili7
 
 ## Quick Start
 
+### HTTP
+
 ```go
 package main
 
 import (
-    "net/http"
-    "time"
-    "codeberg.org/audryus/resili7"
-    "codeberg.org/audryus/resili7/retry"
-    "codeberg.org/audryus/resili7/timeout"
+	"net/http"
+	"time"
+
+	"codeberg.org/audryus/resili7/rhttp"
+	"codeberg.org/audryus/resili7/rhttp/limiter"
+	"codeberg.org/audryus/resili7/rhttp/retry"
+	"codeberg.org/audryus/resili7/rhttp/timeout"
 )
 
 func main() {
-    // 1. Configure the pipeline
-    pipeline := resili7.Pipeline{
-        HttpCient: http.DefaultClient,
-        Timeout:   timeout.NewTimeoutMiddleware(5 * time.Second),
-        Retry: retry.NewRetryMiddleware(&retry.RetryPolicy{
-            MaxAttempts: 3,
-            TryDeadline: 1 * time.Second,
-            Backoff:     retry.ExponentialBackoff(),
-        }),
-    }
+	pipeline := rhttp.Pipeline{
+		HttpCient: http.DefaultClient,
+		Timeout:   rhttp.NewTimeoutMiddleware(5 * time.Second),
+		Retry: rhttp.NewRetryMiddleware(retry.NewRetryPolicy(
+			retry.WithMaxAttempts(3),
+			retry.WithTryDeadline(1 * time.Second),
+		)),
+		Limiter: rhttp.NewLimiterMiddleware(limiter.NewLimiter()),
+	}
 
-    // 2. Build the client
-    client, _ := resili7.NewClient(pipeline)
+	client, err := rhttp.NewClient(pipeline)
+	if err != nil {
+		panic(err)
+	}
 
-    // 3. Execute request
-    req, _ := http.NewRequest("GET", "https://api.example.com", nil)
-    resp, err := client.Do(req)
+	req, _ := http.NewRequest("GET", "https://api.example.com", nil)
+	resp, err := client.Do(req)
+	_ = resp
+}
+```
+
+### gRPC
+
+```go
+package main
+
+import (
+	"context"
+	"time"
+
+	"codeberg.org/audryus/resili7/rgrpc"
+	"codeberg.org/audryus/resili7/rgrpc/limiter"
+	"codeberg.org/audryus/resili7/rgrpc/retry"
+	"codeberg.org/audryus/resili7/rgrpc/timeout"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+)
+
+func main() {
+	pipeline := rgrpc.Pipeline{
+		Timeout: rgrpc.NewTimeoutMiddleware(5 * time.Second),
+		Retry: rgrpc.NewRetryMiddleware(retry.NewRetryPolicy(
+			retry.WithMaxAttempts(3),
+			retry.WithTryDeadline(1 * time.Second),
+		)),
+		Limiter: rgrpc.NewLimiterMiddleware(limiter.NewLimiter()),
+	}
+
+	conn, err := grpc.NewClient(
+		"localhost:50051",
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(rgrpc.NewUnaryClientInterceptor(pipeline)),
+	)
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+
+	_ = conn
 }
 ```
 

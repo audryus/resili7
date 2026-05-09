@@ -40,15 +40,13 @@ func TestRetry(t *testing.T) {
 		}),
 	}
 
-	myInterceptor := rgrpc.NewUnaryClientInterceptor(pipeline)
-
 	conn, err := grpc.NewClient(
 		lis.Addr().String(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithUnaryInterceptor(myInterceptor),
+		grpc.WithUnaryInterceptor(rgrpc.NewUnaryClientInterceptor(pipeline)),
 	)
 	if err != nil {
-		t.Fatalf("dial fail: %v", err)
+		t.Fatalf("dial failed: %v", err)
 	}
 	defer conn.Close()
 
@@ -82,15 +80,13 @@ func TestRetryPerTry(t *testing.T) {
 		}),
 	}
 
-	myInterceptor := rgrpc.NewUnaryClientInterceptor(pipeline)
-
 	conn, err := grpc.NewClient(
 		lis.Addr().String(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithUnaryInterceptor(myInterceptor),
+		grpc.WithUnaryInterceptor(rgrpc.NewUnaryClientInterceptor(pipeline)),
 	)
 	if err != nil {
-		t.Fatalf("dial fail: %v", err)
+		t.Fatalf("dial failed: %v", err)
 	}
 	defer conn.Close()
 

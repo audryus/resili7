@@ -52,3 +52,20 @@ func WithLimits(min, max int64) Option {
 		o.MaxLimit = max
 	}
 }
+
+// WithGainCycle sets the custom BBR-like probing gain sequence.
+// Values must be scaled by 1024 (e.g., 1280 = 1.25x).
+func WithGainCycle(gains []int64) Option {
+	return func(o *Options) { o.GainCycle = gains }
+}
+
+// WithSmoothing sets the EMA smoothing factor.
+// Must be scaled by 1024 (e.g., 205 ≈ 0.2).
+func WithSmoothing(v int64) Option {
+	return func(o *Options) { o.Smoothing = v }
+}
+
+// WithUpdateInterval sets the interval between limit adjustments.
+func WithUpdateInterval(d time.Duration) Option {
+	return func(o *Options) { o.UpdateInterval = d }
+}

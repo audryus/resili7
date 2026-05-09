@@ -16,83 +16,81 @@ import (
 )
 
 func fakeServer(t *testing.T, onCall func() error) (net.Listener, func()) {
-	// 1. Criar um Listener em uma porta aleatória (porta 0)
+	// Create a listener on a random port (port 0)
 	lis, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
-		t.Fatalf("falha ao escutar: %v", err)
+		t.Fatalf("failed to listen: %v", err)
 	}
 
-	// 2. Criar o servidor gRPC com comportamento controlado
+	// Create the gRPC server with controlled behavior
 	srv := grpc.NewServer()
 
-	// Registramos um serviço "falso" do pacote de testes
+	// Register a "mock" service from the test package
 	grpc_testing.RegisterTestServiceServer(srv, &mockServer{
 		onCall: onCall,
 	})
 
-	// Iniciar o servidor em uma goroutine
+	// Start the server in a goroutine
 	go func() {
 		if err := srv.Serve(lis); err != nil {
-			t.Logf("Servidor finalizado: %v", err)
+			t.Logf("Server stopped: %v", err)
 		}
 	}()
 
 	return lis, srv.Stop
 }
 
-// TestIntegrationWithServer testa o fluxo real de Dial -> Request -> Retry
+// TestIntegrationWithServer tests the real flow of Dial -> Request -> Retry
 func TestIntegrationWithServer(t *testing.T) {
 	callCount := 0
 
 	lis, stop := fakeServer(t, func() error {
 		callCount++
-		t.Logf("Servidor chamado pela %d vez\n", callCount)
+		t.Logf("Server called %d time(s)\n", callCount)
 
 		if callCount < 3 {
-			// Falha nas 2 primeiras tentativas (Simula servidor instável)
-			return status.Error(codes.Unavailable, "estou fora do ar")
+			// Fail on first 2 attempts (simulates unstable server)
+			return status.Error(codes.Unavailable, "service unavailable")
 		}
-		// Sucesso na 3ª
+		// Succeed on 3rd attempt
 		return nil
 	})
 	defer stop()
-	// 3. Criar o Client com nosso Interceptor de Resiliência
+	// Create the client with our resilience interceptor
 	pipeline := rgrpc.Pipeline{
 		Retry: rgrpc.NewRetryMiddleware(&retry.RetryPolicy[rgrpc.Request]{
 			MaxAttempts: 3,
 		}),
 	}
 
-	myInterceptor := rgrpc.NewUnaryClientInterceptor(pipeline)
-
-	// O Dial precisa saber o endereço que o listener pegou (lis.Addr())
+	// Dial needs to know the address that the listener grabbed (lis.Addr())
 	conn, err := grpc.NewClient(
 		lis.Addr().String(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithUnaryInterceptor(myInterceptor),
+		grpc.WithUnaryInterceptor(rgrpc.NewUnaryClientInterceptor(pipeline)),
 	)
 
 	if err != nil {
-		t.Fatalf("falha ao dial: %v", err)
+		t.Fatalf("dial failed: %v", err)
 	}
 	defer conn.Close()
 
-	// 4. Fazer a chamada real
+	// Make the actual call
 	client := grpc_testing.NewTestServiceClient(conn)
 
-	// Chamada vazia (Empty é um tipo do pacote grpc_testing)
+	// Empty call (Empty is a type from the grpc_testing package)
 	_, err = client.EmptyCall(context.Background(), &grpc_testing.Empty{})
 
-	// 5. Validações
+	// Validate
 	if err != nil {
-		t.Errorf("Esperado sucesso após retries, obteve erro: %v", err)
+		t.Errorf("Expected success after retries, got error: %v", err)
 	}
 	if callCount != 3 {
-		t.Errorf("Esperado 3 chamadas ao servidor, obteve %d", callCount)
+		t.Errorf("Expected 3 server calls, got %d", callCount)
 	}
 }
 
-// mockServer implementa a interface do servidor de testes
+// mockServer implements the test service server interface
 type mockServer struct {
 	grpc_testing.UnimplementedTestServiceServer
 	onCall func() error

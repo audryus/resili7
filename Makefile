@@ -14,7 +14,8 @@ check-escape:
 # This identifies bottlenecks, contention, and areas for optimization.
 # Outputs a 'cpu.pprof' file for further analysis.
 profile:
-	go test -bench=BenchmarkHttpFullStack -cpuprofile cpu.pprof ./
+	go test -bench=BenchmarkHttpFullStack -cpuprofile http_cpu.pprof ./
+	go test -bench=BenchmarkGrpcFullStack -cpuprofile grpc_cpu.pprof ./
 	@echo "Profile generated in cpu.pprof. Use 'make profile-web' for visual analysis."
 
 # Launches the pprof web interface on port 8080.
