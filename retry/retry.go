@@ -16,6 +16,12 @@ type ResultAction[R any] interface {
 	RequestDeadline() int64
 	IsSuccess(R, error) bool
 	ShouldRetryDefault(R, error) bool
+	Err(error) error
+}
+
+func Execute[R any, A ResultAction[R]](policy *RetryPolicy[R], action A) (err error) {
+	_, err = ExecuteWithResult(policy, action)
+	return err
 }
 
 // ExecuteWithResult é idêntico ao ExecuteAction mas retorna (R, error).
@@ -96,8 +102,5 @@ func ExecuteWithResult[R any, A ResultAction[R]](policy *RetryPolicy[R], action 
 
 	// If we exhausted all attempts:
 	// Return the actual network error if present, otherwise return ErrRetry.
-	if err == nil {
-		return resp, ErrRetry
-	}
-	return resp, err
+	return resp, action.Err(err)
 }

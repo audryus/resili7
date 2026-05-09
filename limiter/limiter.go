@@ -13,6 +13,11 @@ type ResultAction[R any] interface {
 	Now() int64
 }
 
+func Execute[R any, A ResultAction[R]](l *Limiter, action A) (err error) {
+	_, err = ExecuteWithResult(l, action)
+	return err
+}
+
 // ExecuteWithResult é idêntico ao ExecuteAction mas retorna (R, error).
 // Isso permite que o caller receba o resultado por valor, sem alocação no Heap.
 func ExecuteWithResult[R any, A ResultAction[R]](l *Limiter, action A) (resp R, err error) {

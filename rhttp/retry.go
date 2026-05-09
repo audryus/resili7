@@ -26,6 +26,12 @@ func (a action) IsSuccess(resp *http.Response, err error) bool {
 func (a action) ShouldRetryDefault(resp *http.Response, err error) bool {
 	return ShouldRetryDefault(resp, err)
 }
+func (a action) Err(err error) error {
+	if err == nil {
+		return retry.ErrRetry
+	}
+	return err
+}
 
 // ShouldRetryDefault returns a strategy that retries on network errors (err != nil)
 // or server-side HTTP errors (status >= 500), except for common rate-limiting signals.

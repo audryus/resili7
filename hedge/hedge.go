@@ -59,6 +59,11 @@ func putTimer(t *time.Timer) {
 	timerPool.Put(t)
 }
 
+func Execute[R any, A ResultAction[R]](delay time.Duration, maxAttempts int, action A) (err error) {
+	_, err = ExecuteWithResult(delay, maxAttempts, action)
+	return err
+}
+
 // ExecuteWithResult é idêntico ao ExecuteAction mas retorna (R, error).
 // Isso permite que o caller receba o resultado por valor, sem alocação no Heap.
 func ExecuteWithResult[R any, A ResultAction[R]](delay time.Duration, maxAttempts int, action A) (resp R, err error) {

@@ -25,7 +25,7 @@ func BenchmarkCircuitBreak(b *testing.B) {
 	})
 
 	if err != nil {
-		b.FailNow()
+		b.Fatal("Client should have been created")
 	}
 
 	b.Run("With_Circuit_Breaker", func(b *testing.B) {
