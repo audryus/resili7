@@ -12,9 +12,7 @@ func TestLimiterCloseStopsControlLoop(t *testing.T) {
 		t.Fatalf("Close returned error: %v", err)
 	}
 
-	select {
-	case <-l.done:
-	case <-time.After(200 * time.Millisecond):
+	if !l.IsStopped() {
 		t.Fatal("control loop did not stop after Close")
 	}
 }

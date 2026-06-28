@@ -1,6 +1,7 @@
 package limiter
 
 import (
+	"log"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -51,6 +52,16 @@ func (l *Limiter) Close() error {
 	})
 	<-l.done
 	return nil
+}
+
+// IsStopped reports whether the background control loop has exited.
+func (l *Limiter) IsStopped() bool {
+	select {
+	case <-l.done:
+		return true
+	default:
+		return false
+	}
 }
 
 // Acquire attempts to gain a permit to proceed with a request.
@@ -126,7 +137,7 @@ func (l *Limiter) observeRTT(ns int64) {
 func (l *Limiter) controlLoop() {
 	defer func() {
 		if r := recover(); r != nil {
-			// Recover from unexpected panics and ensure Close() does not hang.
+			log.Printf("limiter control loop recovered from panic: %v", r)
 		}
 		close(l.done)
 	}()

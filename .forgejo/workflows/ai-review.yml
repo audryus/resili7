@@ -143,9 +143,10 @@ jobs:
 
           Rules:
 
+          - Do not suggest Next Steps.
+          - Do not ask questions.
           - Do not expose your reasoning.
           - Do not include chain-of-thought.
-          - Do not ask questions.
           - Do not offer follow-up actions.
           - Do not congratulate the author.
           - Do not suggest improvements that are purely subjective.

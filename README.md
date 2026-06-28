@@ -80,6 +80,34 @@ This makes the behavior explicit and avoids surprising retry amplification under
 
 ---
 
+## Breaking Changes
+
+### HTTP 429 (Too Many Requests) no longer retried by default
+
+In previous versions, HTTP 429 responses were automatically retried by `ShouldRetryDefault`. This behavior has been **removed** to prevent unintended retry amplification under load.
+
+**If you relied on automatic 429 retries**, you must now explicitly opt in using one of:
+
+- **`Retry429Always`** — Always retry 429 responses (equivalent to old behavior)
+- **`Retry429PolicyFor(policy)`** — Returns a retry predicate based on the chosen policy
+- **`ShouldRetryWithRateLimit`** — Direct function for custom retry logic
+
+Example migration:
+
+```go
+// Before (old behavior - 429 retried automatically):
+policy := retry.NewPolicy[*http.Response](
+    retry.WithShouldRetry(rhttp.ShouldRetryDefault),
+)
+
+// After (opt-in to 429 retries):
+policy := retry.NewPolicy[*http.Response](
+    retry.WithShouldRetry(rhttp.Retry429PolicyFor(rhttp.Retry429Always)),
+)
+```
+
+---
+
 ## WebSocket Architecture
 
 WebSocket differs fundamentally from HTTP/gRPC:

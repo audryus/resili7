@@ -113,7 +113,7 @@ func NewClient(pipeline Pipeline) (*Client, error) {
 		return nil, ErrClientCreation
 	}
 
-	// Chain order: Limiter -> CircuitBreaker -> Timeout -> Retry -> Hedge -> Handler.
+	// Chain order: Handler -> Hedge -> Retry -> Timeout -> CircuitBreaker -> Limiter.
 	// Last added middleware becomes the outermost layer in the call stack.
 
 	if pipeline.Hedge != nil {
