@@ -77,7 +77,7 @@ jobs:
           TOKEN: ${{ secrets.TOKEN }}
           URL: ${{ forgejo.api_url }}
         run: |
-          jq -Rs '{body: "## 🤖 AI Code Review\n\n" + .}' /tmp/review.md > /tmp/comment.json
+          jq -Rs '{body: ("## 🤖 AI Code Review\n\n" + .)}' /tmp/review.md > /tmp/comment.json
 
           cat /tmp/comment.json
 
