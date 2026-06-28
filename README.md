@@ -55,6 +55,8 @@ go get codeberg.org/audryus/resili7
 
 ## Pipeline Architecture
 
+The list below describes the request execution path through the resilience stack. Middleware composition is built from the final handler outward, so the outermost wrapper is added last.
+
 Execution order is strictly enforced for optimal protection:
 
 1. **Limiter** — Rejects excess traffic immediately

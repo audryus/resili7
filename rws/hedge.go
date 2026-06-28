@@ -103,6 +103,8 @@ func NewHedgeMiddleware(dialer DialConn, delay time.Duration, maxAttempts int) M
 
 		finish:
 			// Cleanup: recycle state if all goroutines finished.
+			// The coordinator decrements once after consuming the first result, while each
+			// dial attempt decrements once upon completion.
 			if state.active.Add(-1) == 0 {
 				recycleDialState(state)
 			}

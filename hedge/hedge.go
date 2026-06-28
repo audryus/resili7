@@ -109,6 +109,8 @@ func ExecuteWithResult[R any, A ResultAction[R]](delay time.Duration, maxAttempt
 finish:
 	// Cleanup: the coordinator decrements the reference count only after it has consumed
 	// the winning result, so the state cannot be recycled while it is still in use.
+	// Each hedged attempt also decrements the counter once, so recycling only occurs
+	// after the coordinator and all outstanding attempt goroutines have finished.
 	if state.active.Add(-1) == 0 {
 		recycleState(state)
 	}

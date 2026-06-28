@@ -124,7 +124,12 @@ func (l *Limiter) observeRTT(ns int64) {
 
 // controlLoop periodically triggers the limit adjustment logic.
 func (l *Limiter) controlLoop() {
-	defer close(l.done)
+	defer func() {
+		if r := recover(); r != nil {
+			// Recover from unexpected panics and ensure Close() does not hang.
+		}
+		close(l.done)
+	}()
 
 	t := time.NewTicker(l.opts.UpdateInterval)
 	defer t.Stop()
