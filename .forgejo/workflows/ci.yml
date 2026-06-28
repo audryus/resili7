@@ -9,7 +9,7 @@ jobs:
     runs-on: self-hosted
     name: Test (Go ${{ matrix.go-version }})
     container:
-      image: ghcr.io/catthehacker/ubuntu:act-22.04
+      image: node:20-bookworm
 
     strategy:
       fail-fast: false
