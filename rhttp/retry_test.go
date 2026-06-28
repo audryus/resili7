@@ -135,7 +135,7 @@ func TestHttpRetryPolicy(t *testing.T) {
 			name:     "Rate Limit 429",
 			resp:     &http.Response{StatusCode: 429},
 			err:      nil,
-			expected: true,
+			expected: false,
 		},
 	}
 

@@ -64,6 +64,18 @@ Execution order is strictly enforced for optimal protection:
 5. **Hedge** — Parallel attempts for tail-latency optimization
 6. **Handler** — Final network execution
 
+### Controlling fan-out and 429 handling
+
+When both Retry and Hedge are enabled, resili7 now lets you control the amount of concurrent fan-out through the pipeline. Set `RetryHedgeFanoutLimit` to a positive value to allow hedging to remain active while retries are in progress; set it to `0` to disable the combined path and preserve a stricter, lower-fan-out behavior.
+
+For HTTP 429 responses, choose an explicit policy with `Retry429Policy`:
+
+- `Retry429Never` (default behavior): do not retry 429s
+- `Retry429Default`: same as `Retry429Never` for the built-in default predicate
+- `Retry429Always`: opt in to retrying 429s when appropriate
+
+This makes the behavior explicit and avoids surprising retry amplification under load.
+
 ---
 
 ## WebSocket Architecture

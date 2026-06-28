@@ -78,19 +78,28 @@ func defaultClassifier(err error) bool {
 
 // CircuitBreaker implements the Circuit Breaker pattern for fault tolerance.
 // It uses atomic operations for the hot path and a mutex for state transitions.
+// windowStats holds the counters for a single measurement window.
+type windowStats struct {
+	start    int64
+	requests atomic.Uint64
+	failures atomic.Uint64
+}
+
+// CircuitBreaker implements a concurrency-safe circuit breaker with closed, open, and half-open states.
 type CircuitBreaker struct {
-	errorClassifier  ErrorClassifier
-	lastFailTime     int64
-	openTimeout      time.Duration
-	windowDuration   time.Duration
-	minRequests      uint64
-	errorThreshold   int64
-	requests         atomic.Uint64
-	failures         atomic.Uint64
-	windowStart      atomic.Int64
-	mu               sync.Mutex
-	state            atomic.Uint32
-	HalfOpenInFlight bool
+	errorClassifier  ErrorClassifier             // Function used to decide whether an error should count as a failure.
+	lastFailTime     int64                       // Timestamp of the last transition to the open state.
+	openTimeout      time.Duration               // Cooldown period before half-open probing is allowed.
+	windowDuration   time.Duration               // Length of the rolling error-rate measurement window.
+	minRequests      uint64                      // Minimum number of requests required before opening the circuit.
+	errorThreshold   int64                       // Failure threshold scaled by 1024 for fixed-point comparison.
+	requests         atomic.Uint64               // Total requests observed in the current window.
+	failures         atomic.Uint64               // Total failures observed in the current window.
+	windowStart      atomic.Int64                // Start timestamp of the current measurement window.
+	window           atomic.Pointer[windowStats] // Pointer to the active window statistics.
+	mu               sync.Mutex                  // Protects state transitions in the slow path.
+	state            atomic.Uint32               // Current breaker state.
+	HalfOpenInFlight bool                        // Tracks whether a half-open probe is already in flight.
 }
 
 // NewBreaker creates a new CircuitBreaker with default or custom options.
@@ -109,6 +118,7 @@ func NewBreaker(opts ...Option) *CircuitBreaker {
 
 	cb.state.Store(uint32(StateClosed))
 	cb.windowStart.Store(time.Now().UnixNano())
+	cb.window.Store(&windowStats{start: time.Now().UnixNano()})
 
 	return cb
 }
@@ -120,21 +130,28 @@ func (cb *CircuitBreaker) Unlock() {
 	cb.mu.Unlock()
 }
 
-// rotateWindow resets the statistical window if the duration has expired.
-// Uses Atomic Compare-and-Swap (CAS) to avoid locking during statistics collection.
+// rotateWindow swaps in a fresh window state when the current measurement window has expired.
 func (cb *CircuitBreaker) rotateWindow(now int64) {
-	start := cb.windowStart.Load()
-
-	if now-start < int64(cb.windowDuration) {
+	current := cb.window.Load()
+	if current != nil && now-current.start < int64(cb.windowDuration) {
 		return
 	}
 
-	if cb.windowStart.CompareAndSwap(start, now) {
+	newWindow := &windowStats{start: now}
+	if cb.window.CompareAndSwap(current, newWindow) {
+		cb.windowStart.Store(now)
 		cb.requests.Store(0)
 		cb.failures.Store(0)
 	}
 }
 
+// currentWindow returns the active statistics window, rotating to a new one when needed.
+func (cb *CircuitBreaker) currentWindow(now int64) *windowStats {
+	cb.rotateWindow(now)
+	return cb.window.Load()
+}
+
+// isFailure reports whether the supplied error should be counted as a breaker failure.
 func (cb *CircuitBreaker) isFailure(err error) bool {
 	return cb.errorClassifier(err)
 }
@@ -153,23 +170,25 @@ func Execute[R any, A ResultAction[R]](cb *CircuitBreaker, action A) (err error)
 }
 
 // ExecuteWithResult executes the action with circuit breaker protection.
-// Returns (R, error) to support pass-by-value semantics for zero-allocation in the hot path.
+// It returns the action result and any error while enforcing the breaker state machine.
 func ExecuteWithResult[R any, A ResultAction[R]](cb *CircuitBreaker, action A) (resp R, err error) {
 
 	// FAST PATH — CLOSED
 	// Optimized for the common case where the circuit is closed.
 	if State(cb.state.Load()) == StateClosed {
-		cb.rotateWindow(action.Now())
-		cb.requests.Add(1)
+		window := cb.currentWindow(action.Now())
+		window.requests.Add(1)
+		cb.requests.Store(window.requests.Load())
 
 		resp, err = action.Execute()
 
 		if cb.isFailure(err) {
-			cb.failures.Add(1)
+			window.failures.Add(1)
+			cb.failures.Store(window.failures.Load())
 		}
 
-		total := cb.requests.Load()
-		fail := cb.failures.Load()
+		total := window.requests.Load()
+		fail := window.failures.Load()
 
 		// Check if the failure threshold has been exceeded.
 		if total >= cb.minRequests {
@@ -236,6 +255,7 @@ func ExecuteWithResult[R any, A ResultAction[R]](cb *CircuitBreaker, action A) (
 			cb.requests.Store(0)
 			cb.failures.Store(0)
 			cb.windowStart.Store(time.Now().UnixNano())
+			cb.window.Store(&windowStats{start: time.Now().UnixNano()})
 		}
 	}
 

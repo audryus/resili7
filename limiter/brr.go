@@ -1,6 +1,7 @@
 package limiter
 
 import (
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -12,9 +13,12 @@ type Limiter struct {
 	opts       Options
 	limit      atomic.Int64  // Current allowed concurrency limit.
 	inflight   atomic.Int64  // Number of requests currently being processed.
-	rttMin     atomic.Int64  // Lowest observed RTT in the current window (in nanoseconds).
-	rttEMA     atomic.Int64  // Exponential Moving Average of RTT (in nanoseconds).
+	rttMin     atomic.Int64  // Lowest observed RTT in the current window, in nanoseconds.
+	rttEMA     atomic.Int64  // Exponential moving average of RTT, in nanoseconds.
 	cycleIndex atomic.Uint32 // Current position in the gain cycling loop.
+	stopCh     chan struct{} // Signal channel used to stop the background control loop.
+	done       chan struct{} // Closed when the background control loop exits.
+	closeOnce  sync.Once     // Ensures shutdown runs only once.
 }
 
 // NewLimiter initializes a new adaptive limiter.
@@ -26,7 +30,9 @@ func NewLimiter(opts ...Option) *Limiter {
 	}
 
 	l := &Limiter{
-		opts: o,
+		opts:   o,
+		stopCh: make(chan struct{}),
+		done:   make(chan struct{}),
 	}
 
 	l.limit.Store(o.InitialLimit)
@@ -36,6 +42,15 @@ func NewLimiter(opts ...Option) *Limiter {
 	go l.controlLoop()
 
 	return l
+}
+
+// Close stops the limiter's background control loop and waits for it to finish.
+func (l *Limiter) Close() error {
+	l.closeOnce.Do(func() {
+		close(l.stopCh)
+	})
+	<-l.done
+	return nil
 }
 
 // Acquire attempts to gain a permit to proceed with a request.
@@ -109,10 +124,18 @@ func (l *Limiter) observeRTT(ns int64) {
 
 // controlLoop periodically triggers the limit adjustment logic.
 func (l *Limiter) controlLoop() {
-	t := time.NewTicker(l.opts.UpdateInterval)
+	defer close(l.done)
 
-	for range t.C {
-		l.adjust()
+	t := time.NewTicker(l.opts.UpdateInterval)
+	defer t.Stop()
+
+	for {
+		select {
+		case <-l.stopCh:
+			return
+		case <-t.C:
+			l.adjust()
+		}
 	}
 }
 

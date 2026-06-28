@@ -107,7 +107,8 @@ func ExecuteWithResult[R any, A ResultAction[R]](delay time.Duration, maxAttempt
 	finalRes = <-state.resCh
 
 finish:
-	// Cleanup: decrement the reference count. If zero, all goroutines finished; recycle state.
+	// Cleanup: the coordinator decrements the reference count only after it has consumed
+	// the winning result, so the state cannot be recycled while it is still in use.
 	if state.active.Add(-1) == 0 {
 		recycleState(state)
 	}
@@ -128,10 +129,9 @@ func hedgeAttempt[R any, A ResultAction[R]](action A, state *hedgeState) {
 	default:
 	}
 
-	// Decrement active count. If this was the last goroutine, recycle the state.
-	if state.active.Add(-1) == 0 {
-		recycleState(state)
-	}
+	// Decrement the active count. The coordinator owns recycling once it has finished
+	// consuming the result and all outstanding attempts have completed.
+	state.active.Add(-1)
 }
 
 // recycleState prepares the hedgeState for reuse by clearing the channel and returning to pool.
