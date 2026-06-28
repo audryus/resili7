@@ -6,14 +6,11 @@ on:
 
 jobs:
   ai-review:
-    runs-on: gpu          
-    container:
-      image: ghcr.io/catthehacker/ubuntu:act-22.04
+    runs-on: gpu
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install deps
         run: |
           apt-get update && apt-get install -y curl jq git
 
@@ -21,57 +18,47 @@ jobs:
         id: diff
         run: |
           git fetch origin ${{ github.base_ref }}
-          git diff origin/${{ github.base_ref }}...HEAD > /tmp/pr_diff.txt
-          # Limitar tamanho do diff para não explodir o contexto
-          head -c 50000 /tmp/pr_diff.txt > /tmp/pr_diff_truncated.txt
+          git diff origin/${{ github.base_ref }}...HEAD | head -c 30000 > /tmp/diff.txt
 
       - name: Run AI Review with Ollama
         env:
-          OLLAMA_HOST: http://host.docker.internal:11434
+          OLLAMA_HOST: http://host.containers.internal:11434
         run: |
-          MODEL="ornith:35b"  # ou llama3, mistral, qwen2.5-coder, etc.
+          MODEL="ornith:35b"
           
-          # Verificar se modelo está disponível
+          # Verificar se modelo existe
           curl -s "$OLLAMA_HOST/api/tags" | grep -q "$MODEL" || \
-            (echo "Modelo $MODEL não encontrado. Instale com: ollama pull $MODEL" && exit 1)
+            (echo "Modelo $MODEL não encontrado. Execute: ollama pull $MODEL" && exit 1)
           
-          # Preparar prompt
-          PROMPT="Você é um revisor de código experiente. Analise o seguinte diff e forneça:
+          PROMPT="Você é um revisor de código experiente. Analise o diff e liste:
           1. Bugs ou problemas de lógica
-          2. Sugestões de melhoria de performance
-          3. Problemas de segurança
-          4. Questões de estilo/maintainability
-          
+          2. Problemas de performance
+          3. Vulnerabilidades de segurança
+          4. Sugestões de melhoria de código
+
           Seja conciso e prático. Responda em português.
-          
+
           DIFF:
-          $(cat /tmp/pr_diff_truncated.txt)"
-          
-          # Chamar Ollama
-          REVIEW=$(curl -s "$OLLAMA_HOST/api/generate" \
+          $(cat /tmp/diff.txt)"
+
+          curl -s "$OLLAMA_HOST/api/generate" \
             -H "Content-Type: application/json" \
             -d "{
               \"model\": \"$MODEL\",
               \"prompt\": $(echo "$PROMPT" | jq -Rs .),
               \"stream\": false,
-              \"options\": {
-                \"temperature\": 0.3,
-                \"num_ctx\": 8192
-              }
-            }" | jq -r '.response')
-          
-          echo "$REVIEW" > /tmp/ai_review.md
+              \"options\": {\"temperature\": 0.2, \"num_ctx\": 8192}
+            }" | jq -r '.response' > /tmp/review.md
 
-      - name: Comment on PR
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const review = fs.readFileSync('/tmp/ai_review.md', 'utf8');
-            
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `## AI Code Review\n\n${review}`
-            });
+      - name: Comment on PR via API
+        env:
+          FORGEJO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FORGEJO_URL: ${{ github.server_url }}
+        run: |
+          REVIEW=$(cat /tmp/review.md | jq -Rs .)
+          
+          curl -s -X POST \
+            -H "Authorization: token $FORGEJO_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"body\": \"## 🤖 AI Code Review (Ollama + codellama)\n\n$REVIEW\"}" \
+            "$FORGEJO_URL/api/v1/repos/${{ github.repository }}/issues/${{ github.event.number }}/comments"
