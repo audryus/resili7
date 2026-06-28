@@ -51,30 +51,25 @@ jobs:
           MODEL="ornith:35b"
           
           # Verificar se modelo existe
-          curl -s "$OLLAMA_HOST/api/tags" | grep -q "$MODEL" || \
-            (echo "Modelo $MODEL não encontrado. Execute: ollama pull $MODEL" && exit 1)
-          
-          PROMPT="Você é um revisor de código experiente. Analise o diff e liste:
-          1. Bugs ou problemas de lógica
-          2. Problemas de performance
-          3. Vulnerabilidades de segurança
-          4. Sugestões de melhoria de código
-
-          Seja conciso e prático. Responda em português.
-
-          DIFF:
-          $(cat /tmp/diff.txt)"
-
-          curl -s "$OLLAMA_HOST/api/generate" \
+          RESP=$(curl -s "$OLLAMA_HOST/api/generate" \
             -H "Content-Type: application/json" \
             -d "{
               \"model\": \"$MODEL\",
               \"prompt\": $(echo "$PROMPT" | jq -Rs .),
               \"stream\": false,
-              \"options\": {\"temperature\": 0.2, \"num_ctx\": 8192}
-            }" | jq -r '.response' > /tmp/review.md
+              \"options\": {
+                \"temperature\": 0.2,
+                \"num_ctx\": 8192
+              }
+            }")
 
-            cat /tmp/review.md
+          echo "===== OLLAMA RESPONSE ====="
+          echo "$RESP" | jq .
+
+          echo "$RESP" | jq -r '.response // empty' > /tmp/review.md
+
+          echo "===== REVIEW ====="
+          cat /tmp/review.md
       - name: Comment on PR via API
         env:
           TOKEN: ${{ secrets.TOKEN }}
