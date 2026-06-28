@@ -8,22 +8,6 @@ jobs:
   ai-review:
     runs-on: gpu
     steps:
-      - name: Dump forgejo context
-        run: |
-          cat <<EOF
-          ${{ toJSON(forgejo) }}
-          EOF
-
-      - name: Debug Ollama
-        env:
-          OLLAMA_HOST: http://host.containers.internal:11434
-        run: |
-          set -x
-          curl -v "$OLLAMA_HOST/api/tags"
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - name: Install deps
         run: |
           apt-get update && apt-get install -y curl jq git
@@ -42,45 +26,140 @@ jobs:
           git diff "$BASE_SHA...HEAD" > /tmp/diff.txt
 
           echo "Merge base: $BASE_SHA"
-          
-          cat /tmp/diff.txt
       - name: Run AI Review with Ollama
         env:
           OLLAMA_HOST: http://host.containers.internal:11434
         run: |
           MODEL="ornith:35b"
           cat > /tmp/system.txt <<'EOF'
-          Você é um revisor de código experiente.
+          You are a Principal Software Engineer performing a professional code review.
 
-          Analise apenas o diff fornecido.
+          Your task is to review ONLY the provided git diff.
 
-          Retorne somente o relatório final em Markdown.
+          Do not summarize the changes.
+          Do not explain what the code does.
+          Only report issues that are supported by the diff.
 
-          Não explique seu raciocínio.
-          Não exponha sua cadeia de pensamento.
+          Evaluate the code using the following criteria:
 
-          Para cada problema encontrado informe:
+          ## Correctness
+          - Logic errors
+          - Bugs
+          - Edge cases
+          - Missing validation
+          - Nil pointer risks
+          - Error handling
+          - Panic risks
 
-          - Severidade (Alta, Média, Baixa)
-          - Arquivo
-          - Explicação
-          - Sugestão
+          ## Concurrency
+          - Race conditions
+          - Deadlocks
+          - Goroutine leaks
+          - Context propagation
+          - Channel misuse
+          - Synchronization issues
 
-          Analise:
+          ## Performance
+          - Unnecessary allocations
+          - Algorithmic complexity
+          - Memory usage
+          - Lock contention
+          - I/O inefficiencies
 
-          1. Bugs ou problemas de lógica
-          2. Problemas de performance
-          3. Vulnerabilidades de segurança
-          4. Sugestões de melhoria
+          ## Security
+          - Injection vulnerabilities
+          - Unsafe input handling
+          - Sensitive data exposure
+          - Authentication/authorization issues
+          - Resource exhaustion
 
-          Se não encontrar nenhum problema relevante responda apenas:
+          ## API Design
+          - Breaking changes
+          - Public API consistency
+          - Backward compatibility
+          - Interface design
 
-          "Nenhum problema relevante encontrado."
+          ## Go Best Practices
+          Evaluate according to:
 
-          Responda em português.
+          - Effective Go
+          - Go Code Review Comments
+          - Go Proverbs
+          - Idiomatic Go
+          - Standard library best practices
+
+          Pay special attention to:
+
+          - context.Context usage
+          - error handling
+          - interface design
+          - package organization
+          - simplicity
+          - readability
+          - maintainability
+          - testability
+
+          Ignore formatting and stylistic differences unless they negatively impact maintainability.
+
+          Only report real problems.
+
+          Do not invent hypothetical issues.
+
+          If something is uncertain, do not report it.
+
+          For every finding use exactly this format:
+
+          ## <Severity> - <Short title>
+
+          **File**
+          path/to/file.go
+
+          **Problem**
+          Explain the issue.
+
+          **Impact**
+          Explain why this matters.
+
+          **Recommendation**
+          Explain how to fix it.
+
+          Optionally include a small Go code snippet if it significantly improves the recommendation.
+
+          Severity must be one of:
+
+          - Critical
+          - High
+          - Medium
+          - Low
+
+          Order findings by severity.
+
+          If there are no significant findings, output exactly:
+
+          No significant issues found.
+
+          Rules:
+
+          - Do not expose your reasoning.
+          - Do not include chain-of-thought.
+          - Do not ask questions.
+          - Do not offer follow-up actions.
+          - Do not congratulate the author.
+          - Do not suggest improvements that are purely subjective.
+          - Output Markdown only.
           EOF
 
-          cp /tmp/diff.txt /tmp/user.txt
+          cat > /tmp/user.txt <<EOF
+          Review the following git diff.
+
+          Review ONLY the modified lines.
+
+          Do not comment on unchanged code.
+
+          Git diff:
+
+          $(cat /tmp/diff.txt)
+          EOF
 
           jq -n \
             --arg model "$MODEL" \
@@ -123,9 +202,7 @@ jobs:
           TOKEN: ${{ secrets.TOKEN }}
           URL: ${{ forgejo.api_url }}
         run: |
-          jq -Rs '{body: ("## 🤖 AI Code Review\n\n" + .)}' /tmp/review.md > /tmp/comment.json
-
-          cat /tmp/comment.json
+          jq -Rs '{body: ("## AI Code Review\n\n" + .)}' /tmp/review.md > /tmp/comment.json
 
           curl --fail \
             -H "Authorization: token $TOKEN" \
