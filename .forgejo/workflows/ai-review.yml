@@ -42,6 +42,8 @@ jobs:
           git diff "$BASE_SHA...HEAD" > /tmp/diff.txt
 
           echo "Merge base: $BASE_SHA"
+          
+          cat /tmp/diff.txt
       - name: Run AI Review with Ollama
         env:
           OLLAMA_HOST: http://host.containers.internal:11434
@@ -72,6 +74,7 @@ jobs:
               \"options\": {\"temperature\": 0.2, \"num_ctx\": 8192}
             }" | jq -r '.response' > /tmp/review.md
 
+            cat /tmp/review.md
       - name: Comment on PR via API
         env:
           TOKEN: ${{ secrets.TOKEN }}
