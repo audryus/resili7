@@ -8,7 +8,14 @@ jobs:
   ai-review:
     runs-on: gpu
     steps:
+      - name: Dump forgejo context
+        run: |
+          cat <<EOF
+          ${{ toJSON(forgejo) }}
+          EOF
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install deps
         run: |
@@ -17,17 +24,17 @@ jobs:
       - name: Get PR diff
         id: diff
         run: |
-          # Fetch o branch base com depth suficiente
-          git fetch origin ${{ github.base_ref }} --depth=100
-          
-          # Encontrar o merge base entre base e HEAD
-          BASE_SHA=$(git merge-base origin/${{ github.base_ref }} HEAD)
-          
-          # Diff apenas do que foi adicionado no PR
-          git diff "$BASE_SHA...HEAD" | head -c 30000 > /tmp/diff.txt
-          
+          BASE_BRANCH="${{ github.base_ref }}"
+
+          echo "Base: $BASE_BRANCH"
+
+          git fetch origin "$BASE_BRANCH"
+
+          BASE_SHA=$(git merge-base "origin/$BASE_BRANCH" HEAD)
+
+          git diff "$BASE_SHA...HEAD" > /tmp/diff.txt
+
           echo "Merge base: $BASE_SHA"
-          echo "Diff size: $(wc -c < /tmp/diff.txt) bytes"
       - name: Run AI Review with Ollama
         env:
           OLLAMA_HOST: http://host.containers.internal:11434
