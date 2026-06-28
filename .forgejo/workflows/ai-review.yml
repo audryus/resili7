@@ -49,38 +49,75 @@ jobs:
           OLLAMA_HOST: http://host.containers.internal:11434
         run: |
           MODEL="ornith:35b"
-          
-          PROMPT="Você é um revisor de código experiente. Analise o diff e liste:
+          cat > /tmp/system.txt <<'EOF'
+          Você é um revisor de código experiente.
+
+          Analise apenas o diff fornecido.
+
+          Retorne somente o relatório final em Markdown.
+
+          Não explique seu raciocínio.
+          Não exponha sua cadeia de pensamento.
+
+          Para cada problema encontrado informe:
+
+          - Severidade (Alta, Média, Baixa)
+          - Arquivo
+          - Explicação
+          - Sugestão
+
+          Analise:
+
           1. Bugs ou problemas de lógica
           2. Problemas de performance
           3. Vulnerabilidades de segurança
-          4. Sugestões de melhoria de código
+          4. Sugestões de melhoria
 
-          Seja conciso e prático. Responda em português.
+          Se não encontrar nenhum problema relevante responda apenas:
 
-          DIFF:
-          $(cat /tmp/diff.txt)"
+          "Nenhum problema relevante encontrado."
 
-          # Verificar se modelo existe
-          RESP=$(curl -s "$OLLAMA_HOST/api/generate" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"model\": \"$MODEL\",
-              \"prompt\": $(echo "$PROMPT" | jq -Rs .),
-              \"stream\": false,
-              \"options\": {
-                \"temperature\": 0.2,
-                \"num_ctx\": 8192
+          Responda em português.
+          EOF
+
+          cp /tmp/diff.txt /tmp/user.txt
+
+          jq -n \
+            --arg model "$MODEL" \
+            --rawfile system /tmp/system.txt \
+            --rawfile user /tmp/user.txt \
+            '{
+              model: $model,
+              stream: false,
+              messages: [
+                {
+                  role: "system",
+                  content: $system
+                },
+                {
+                  role: "user",
+                  content: $user
+                }
+              ],
+              options: {
+                temperature: 0.2,
+                num_ctx: 8192,
+                num_predict: 4096
               }
-            }")
+            }' > /tmp/request.json
+
+          RESP=$(curl -s "$OLLAMA_HOST/api/chat" \
+              -H "Content-Type: application/json" \
+              -d @/tmp/request.json)
 
           echo "===== OLLAMA RESPONSE ====="
           echo "$RESP" | jq .
 
-          echo "$RESP" | jq -r '.response // empty' > /tmp/review.md
+          echo "$RESP" | jq -r '.message.content // empty' > /tmp/review.md
 
           echo "===== REVIEW ====="
           cat /tmp/review.md
+          
       - name: Comment on PR via API
         env:
           TOKEN: ${{ secrets.TOKEN }}
