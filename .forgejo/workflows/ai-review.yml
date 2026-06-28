@@ -13,6 +13,13 @@ jobs:
           cat <<EOF
           ${{ toJSON(forgejo) }}
           EOF
+
+      - name: Debug Ollama
+        env:
+          OLLAMA_HOST: http://host.containers.internal:11434
+        run: |
+          set -x
+          curl -v "$OLLAMA_HOST/api/tags"
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
