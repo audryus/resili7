@@ -50,6 +50,17 @@ jobs:
         run: |
           MODEL="ornith:35b"
           
+          PROMPT="Você é um revisor de código experiente. Analise o diff e liste:
+          1. Bugs ou problemas de lógica
+          2. Problemas de performance
+          3. Vulnerabilidades de segurança
+          4. Sugestões de melhoria de código
+
+          Seja conciso e prático. Responda em português.
+
+          DIFF:
+          $(cat /tmp/diff.txt)"
+
           # Verificar se modelo existe
           RESP=$(curl -s "$OLLAMA_HOST/api/generate" \
             -H "Content-Type: application/json" \
