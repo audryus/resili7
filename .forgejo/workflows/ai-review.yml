@@ -77,10 +77,12 @@ jobs:
           TOKEN: ${{ secrets.TOKEN }}
           URL: ${{ forgejo.api_url }}
         run: |
-          REVIEW=$(cat /tmp/review.md | jq -Rs .)
-          
-          curl -s -X POST \
+          jq -Rs '{body: "## 🤖 AI Code Review\n\n" + .}' /tmp/review.md > /tmp/comment.json
+
+          cat /tmp/comment.json
+
+          curl --fail \
             -H "Authorization: token $TOKEN" \
             -H "Content-Type: application/json" \
-            -d "{\"body\": \"## 🤖 AI Code Review (Ollama + codellama)\n\n$REVIEW\"}" \
+            -d @/tmp/comment.json \
             "$URL/repos/${{ forgejo.repository }}/issues/${{ forgejo.event.number }}/comments"
