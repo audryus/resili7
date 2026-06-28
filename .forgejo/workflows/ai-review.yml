@@ -17,9 +17,17 @@ jobs:
       - name: Get PR diff
         id: diff
         run: |
-          git fetch origin ${{ github.base_ref }}
-          git diff origin/${{ github.base_ref }}...HEAD | head -c 30000 > /tmp/diff.txt
-
+          # Fetch o branch base com depth suficiente
+          git fetch origin ${{ github.base_ref }} --depth=100
+          
+          # Encontrar o merge base entre base e HEAD
+          BASE_SHA=$(git merge-base origin/${{ github.base_ref }} HEAD)
+          
+          # Diff apenas do que foi adicionado no PR
+          git diff "$BASE_SHA...HEAD" | head -c 30000 > /tmp/diff.txt
+          
+          echo "Merge base: $BASE_SHA"
+          echo "Diff size: $(wc -c < /tmp/diff.txt) bytes"
       - name: Run AI Review with Ollama
         env:
           OLLAMA_HOST: http://host.containers.internal:11434
