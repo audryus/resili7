@@ -150,6 +150,7 @@ jobs:
           - Do not offer follow-up actions.
           - Do not congratulate the author.
           - Do not suggest improvements that are purely subjective.
+          - Ouput Potential Issues and Suggestions only.
           - Output Markdown only.
           EOF
 
