@@ -31,7 +31,7 @@ jobs:
       - name: Get PR diff
         id: diff
         run: |
-          BASE_BRANCH="${{ github.base_ref }}"
+          BASE_BRANCH="${{ forgejo.base_ref }}"
 
           echo "Base: $BASE_BRANCH"
 
@@ -74,13 +74,13 @@ jobs:
 
       - name: Comment on PR via API
         env:
-          FORGEJO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          FORGEJO_URL: ${{ github.server_url }}
+          FORGEJO_TOKEN: ${{ secrets.TOKEN }}
+          FORGEJO_URL: ${{ forgejo.api_url }}
         run: |
           REVIEW=$(cat /tmp/review.md | jq -Rs .)
           
           curl -s -X POST \
-            -H "Authorization: token $FORGEJO_TOKEN" \
+            -H "Authorization: token $TOKEN" \
             -H "Content-Type: application/json" \
             -d "{\"body\": \"## 🤖 AI Code Review (Ollama + codellama)\n\n$REVIEW\"}" \
-            "$FORGEJO_URL/api/v1/repos/${{ github.repository }}/issues/${{ github.event.number }}/comments"
+            "$FORGEJO_URL/repos/${{ forgejo.repository }}/issues/${{ forgejo.event.number }}/comments"
