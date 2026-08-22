@@ -37,9 +37,21 @@ jobs:
           # chat endpoint parses model output as tool-call XML and crashes
           # on responses containing <function>/<parameter> tags
           # ("XML syntax error: element <parameter> closed by </function>").
+          INSTRUCTIONS="Review the following git diff.
+          Review ONLY the modified lines.
+          Do not comment on unchanged code.
+          You have NO tools and CANNOT explore, read files, or run commands.
+          Everything you need is in the diff below.
+          Reply ONLY with the findings in the exact markdown format specified
+          by the system prompt (## <Severity> - <title>).
+          If there are no significant findings, reply with an empty response."
+
+          DIFF="$(cat /tmp/diff.txt)"
+          USER_MSG="$(printf '%s\n\nGit diff:\n\n%s' "$(sed 's/^          //' <<<"$INSTRUCTIONS")" "$DIFF")"
+
           jq -n \
             --rawfile system .forgejo/ai-review-prompt.md \
-            --arg user "$(printf '%s\n\nGit diff:\n\n%s\n\nYou have NO tools and CANNOT explore, read files, or run commands. Everything you need is in the diff above. Reply ONLY with the findings in the exact markdown format specified by the system prompt (## <Severity> - <title>). If there are no significant findings, reply with an empty response.' \"$(printf 'Review the following git diff.\nReview ONLY the modified lines.\nDo not comment on unchanged code.' )" "$(cat /tmp/diff.txt)")" \
+            --arg user "$USER_MSG" \
             '{
               model: $ENV.MODEL,
               stream: false,
