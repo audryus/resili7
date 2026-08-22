@@ -12,10 +12,8 @@ jobs:
   # on the pull request itself.
   # ──────────────────────────────────────────────
   auto-pr:
-    runs-on: self-hosted
+    runs-on: gpu
     name: Auto PR (feat -> trunk)
-    container:
-      image: node:20-bookworm
 
     steps:
       - uses: actions/checkout@v4
