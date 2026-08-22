@@ -98,9 +98,7 @@ Severity must be one of:
 
 Order findings by severity.
 
-If there are no significant findings, output exactly:
-
-No significant issues found.
+If there are no significant findings, reply with an empty response (output nothing at all).
 
 Rules:
 - Do not ask questions.

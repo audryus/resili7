@@ -28,20 +28,24 @@ jobs:
           git diff "$BASE_SHA...HEAD" > /tmp/diff.txt
 
       - name: Run AI Review with Ollama
+        id: review_check
         env:
           OLLAMA_HOST: http://host.containers.internal:11434
           MODEL: qwen3.8:27b
         run: |
+          # NOTE: /api/generate is used instead of /api/chat because the
+          # chat endpoint parses model output as tool-call XML and crashes
+          # on responses containing <function>/<parameter> tags
+          # ("XML syntax error: element <parameter> closed by </function>").
           jq -n \
             --rawfile system .forgejo/ai-review-prompt.md \
             --arg user "$(printf 'Review the following git diff.\n\nReview ONLY the modified lines.\n\nDo not comment on unchanged code.\n\nGit diff:\n\n%s' "$(cat /tmp/diff.txt)")" \
             '{
               model: $ENV.MODEL,
               stream: false,
-              messages: [
-                { role: "system", content: $system },
-                { role: "user",   content: $user }
-              ],
+              think: false,
+              system: $system,
+              prompt: $user,
               options: {
                 temperature: 0.2,
                 num_ctx: 8192,
@@ -49,16 +53,31 @@ jobs:
               }
             }' > /tmp/request.json
 
-          curl -s "$OLLAMA_HOST/api/chat" \
+          curl -s "$OLLAMA_HOST/api/generate" \
             -H "Content-Type: application/json" \
             -d @/tmp/request.json > /tmp/response.json
 
           echo "===== OLLAMA RESPONSE ====="
           jq . /tmp/response.json
 
-          jq -r '.message.content // empty' /tmp/response.json > /tmp/review.md
+          if jq -e '.error' /tmp/response.json >/dev/null 2>&1; then
+            echo "Ollama returned an error, no comment will be posted."
+            echo "empty=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          jq -r '.response // empty' /tmp/response.json \
+            | sed -e '/^[[:space:]]*$/d' > /tmp/review.md
+
+          if [ ! -s /tmp/review.md ]; then
+            echo "AI review response is empty. No comment will be posted."
+            echo "empty=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "empty=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Comment on PR via API
+        if: steps.review_check.outputs.empty != 'true'
         env:
           TOKEN: ${{ secrets.TOKEN }}
           URL: ${{ forgejo.api_url }}

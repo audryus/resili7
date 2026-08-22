@@ -80,21 +80,29 @@ jobs:
           TITLE="Auto PR [${BRANCH}]: ${FIRST_SUBJECT}"
           BODY=$(printf '## Auto-generated pipeline PR\n\n**Branch:** `%s` → `trunk`\n\n### Commits\n\n%s\n' "$BRANCH" "$LOG")
 
-          # Dedup guard: skip if an open PR from this branch to trunk exists
-          OPEN_PR=$(curl -sf \
-            -H "Authorization: token ${TOKEN}" \
-            "${API}?state=open&head=${REPOSITORY}:${BRANCH}&base=trunk" | jq length)
-          if [ "${OPEN_PR}" != "0" ]; then
-            echo "An open PR from ${BRANCH} to trunk already exists. Updating description..."
-            PR_NUMBER=$(curl -sf \
+          # Dedup guard + fallback: find existing open PR from this branch to trunk
+          find_existing_pr() {
+            curl -sf \
               -H "Authorization: token ${TOKEN}" \
-              "${API}?state=open&head=${REPOSITORY}:${BRANCH}&base=trunk" | jq -r '.[0].number')
-            curl -sf -X PATCH \
+              "${API}?state=open&limit=50" | jq -r \
+              '.[] | select(.head.ref == "'"$BRANCH"'" and .base.ref == "trunk") | .number' | head -n 1
+          }
+
+          PR_NUMBER="$(find_existing_pr)"
+          if [ -n "$PR_NUMBER" ]; then
+            echo "An open PR from ${BRANCH} to trunk already exists (#${PR_NUMBER}). Updating description..."
+            HTTP=$(curl -s -o /tmp/pr-response.json -w "%{http_code}" -X PATCH \
               -H "Authorization: token ${TOKEN}" \
               -H "Content-Type: application/json" \
-              -d "{\"body\": $(jq -Rn --arg b "$BODY" '$b')}" \
-              "${{ forgejo.api_url }}/repos/${REPOSITORY}/pulls/${PR_NUMBER}"
-            exit 0
+              -d "{\"body\": $(jq -Rn --arg b "$BODY" '$b'), \"title\": $(jq -Rn --arg t "$TITLE" '$t')}" \
+              "${{ forgejo.api_url }}/repos/${REPOSITORY}/pulls/${PR_NUMBER}")
+            if [ "$HTTP" = "200" ] || [ "$HTTP" = "201" ]; then
+              echo "PR #${PR_NUMBER} updated."
+              exit 0
+            fi
+            echo "Failed to update PR #${PR_NUMBER} (HTTP ${HTTP}):"
+            cat /tmp/pr-response.json
+            exit 1
           fi
 
           jq -n \
@@ -112,6 +120,24 @@ jobs:
           if [ "$HTTP" = "201" ]; then
             PR_URL=$(jq -r '.html_url' /tmp/pr-response.json)
             echo "PR created: ${PR_URL}"
+          elif [ "$HTTP" = "409" ]; then
+            # Race or filter mismatch: PR exists but wasn't found above. Retry the lookup.
+            PR_NUMBER="$(find_existing_pr)"
+            if [ -n "$PR_NUMBER" ]; then
+              echo "PR #${PR_NUMBER} already exists (caught on create). Updating description..."
+              curl -sf -X PATCH \
+                -H "Authorization: token ${TOKEN}" \
+                -H "Content-Type: application/json" \
+                -d "{\"body\": $(jq -Rn --arg b "$BODY" '$b'), \"title\": $(jq -Rn --arg t "$TITLE" '$t')}" \
+                "${{ forgejo.api_url }}/repos/${REPOSITORY}/pulls/${PR_NUMBER}" >/dev/null \
+                && echo "PR #${PR_NUMBER} updated." || {
+                  echo "Failed to update PR #${PR_NUMBER}"
+                  exit 1
+                }
+            else
+              echo "PR already exists for these targets but could not be found via API."
+              exit 1
+            fi
           else
             echo "Failed to create PR (HTTP ${HTTP}):"
             cat /tmp/pr-response.json
