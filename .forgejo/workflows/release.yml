@@ -8,9 +8,6 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: write
-
 env:
   VERSION: ${{ forgejo.event.inputs.version }}
 
