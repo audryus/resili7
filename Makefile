@@ -28,3 +28,19 @@ profile-web:
 clean:
 	go clean -testcache
 	rm -f cpu.pprof
+
+# Creates a release tag from trunk.
+# Checks out trunk first, validates, tags and pushes.
+# Usage: make release VERSION=v1.0.0
+release: test
+ifndef VERSION
+	$(error VERSION is required. Usage: make release VERSION=v1.0.0)
+endif
+	@git fetch origin trunk
+	@git checkout trunk
+	@git pull --ff-only origin trunk
+	@if git rev-parse "$(VERSION)" >/dev/null 2>&1; then \
+		echo "Tag $(VERSION) already exists."; exit 1; fi
+	@git tag -a $(VERSION) -m "Release $(VERSION) (commit $$(git rev-parse --short HEAD))"
+	@git push origin $(VERSION)
+	@echo "Released $(VERSION)"
