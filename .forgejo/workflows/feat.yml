@@ -1,11 +1,14 @@
-name: Validate
+name: Feature
 
 on:
   push:
-    branches: ["**"]
-    tags-ignore: ["v*"]
+    branches:
+      - "feat/**"
 
 jobs:
+  # ──────────────────────────────────────────────
+  # Validate the feature branch
+  # ──────────────────────────────────────────────
   test:
     runs-on: self-hosted
     name: Test
@@ -37,53 +40,21 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@latest
           $(go env GOPATH)/bin/govulncheck ./...
 
-  # ──────────────────────────────────────────────
-  # Auto-tag: after a trunk push passes tests,
-  # automatically generate the next patch tag (vX.Y.Z+1)
-  # ──────────────────────────────────────────────
-  auto-tag:
-    runs-on: self-hosted
-    name: Auto tag (trunk)
-    container:
-      image: node:20-bookworm
-    needs: test
-    if: github.ref == 'refs/heads/trunk'
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Compute and push next tag
-        env:
-          TOKEN: ${{ secrets.TOKEN }}
-          REPOSITORY: ${{ forgejo.repository }}
+      - name: Coverage summary
+        if: always()
         run: |
-          git config user.name  "forgejo-ci"
-          git config user.email "ci@codeberg.org"
-
-          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          NEXT_TAG=$(echo "$LAST_TAG" | sed -E 's/^v([0-9]+)\.([0-9]+)\.([0-9]+)$/v\1.\2.\3/' | awk -F. '{printf "v%d.%d.%d", substr($1,2), $2, $3+1}')
-
-          echo "Last tag : $LAST_TAG"
-          echo "Next tag : $NEXT_TAG"
-
-          git tag -a "$NEXT_TAG" -m "Automated release $NEXT_TAG (commit $(git rev-parse --short HEAD))"
-
-          git push "https://oauth2:${TOKEN}@codeberg.org/${REPOSITORY}.git" "$NEXT_TAG"
+          go tool cover -func=coverage.out | tail -n 1
 
   # ──────────────────────────────────────────────
-  # Auto-PR: after tests pass on a feature branch,
-  # automatically open a PR to trunk with the branch
-  # commit list in the description
+  # Auto-PR: after tests pass, open/update a PR
+  # to trunk with this branch's commit list
   # ──────────────────────────────────────────────
   auto-pr:
     runs-on: self-hosted
-    name: Auto PR (feature -> trunk)
+    name: Auto PR (feat -> trunk)
     container:
       image: node:20-bookworm
     needs: test
-    if: github.ref != 'refs/heads/trunk' && github.event_name == 'push'
 
     steps:
       - uses: actions/checkout@v4
