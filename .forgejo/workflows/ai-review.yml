@@ -39,7 +39,7 @@ jobs:
           # ("XML syntax error: element <parameter> closed by </function>").
           jq -n \
             --rawfile system .forgejo/ai-review-prompt.md \
-            --arg user "$(printf 'Review the following git diff.\n\nReview ONLY the modified lines.\n\nDo not comment on unchanged code.\n\nGit diff:\n\n%s' "$(cat /tmp/diff.txt)")" \
+            --arg user "$(printf '%s\n\nGit diff:\n\n%s\n\nYou have NO tools and CANNOT explore, read files, or run commands. Everything you need is in the diff above. Reply ONLY with the findings in the exact markdown format specified by the system prompt (## <Severity> - <title>). If there are no significant findings, reply with an empty response.' \"$(printf 'Review the following git diff.\nReview ONLY the modified lines.\nDo not comment on unchanged code.' )" "$(cat /tmp/diff.txt)")" \
             '{
               model: $ENV.MODEL,
               stream: false,
@@ -69,7 +69,12 @@ jobs:
           jq -r '.response // empty' /tmp/response.json \
             | sed -e '/^[[:space:]]*$/d' > /tmp/review.md
 
-          if [ ! -s /tmp/review.md ]; then
+          # A valid review must contain at least one finding heading.
+          # Anything else (agent chatter, questions, preamble) is discarded.
+          if ! grep -qE '^#{1,3} (Critical|High|Medium|Low) - ' /tmp/review.md; then
+            echo "AI response is not a valid review (no findings found). No comment will be posted."
+            echo "empty=true" >> "$GITHUB_OUTPUT"
+          elif [ ! -s /tmp/review.md ]; then
             echo "AI review response is empty. No comment will be posted."
             echo "empty=true" >> "$GITHUB_OUTPUT"
           else
