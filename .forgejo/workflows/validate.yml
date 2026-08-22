@@ -38,8 +38,8 @@ jobs:
           $(go env GOPATH)/bin/govulncheck ./...
 
   # ──────────────────────────────────────────────
-  # Auto-tag: após o push na trunk passar nos testes,
-  # gera automaticamente a próxima tag patch (vX.Y.Z+1)
+  # Auto-tag: after a trunk push passes tests,
+  # automatically generate the next patch tag (vX.Y.Z+1)
   # ──────────────────────────────────────────────
   auto-tag:
     runs-on: self-hosted
@@ -65,9 +65,86 @@ jobs:
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
           NEXT_TAG=$(echo "$LAST_TAG" | sed -E 's/^v([0-9]+)\.([0-9]+)\.([0-9]+)$/v\1.\2.\3/' | awk -F. '{printf "v%d.%d.%d", substr($1,2), $2, $3+1}')
 
-          echo "Última tag : $LAST_TAG"
-          echo "Próxima tag: $NEXT_TAG"
+          echo "Last tag : $LAST_TAG"
+          echo "Next tag : $NEXT_TAG"
 
           git tag -a "$NEXT_TAG" -m "Automated release $NEXT_TAG (commit $(git rev-parse --short HEAD))"
 
           git push "https://oauth2:${TOKEN}@codeberg.org/${REPOSITORY}.git" "$NEXT_TAG"
+
+  # ──────────────────────────────────────────────
+  # Auto-PR: after tests pass on a feature branch,
+  # automatically open a PR to trunk with the branch
+  # commit list in the description
+  # ──────────────────────────────────────────────
+  auto-pr:
+    runs-on: self-hosted
+    name: Auto PR (feature -> trunk)
+    container:
+      image: node:20-bookworm
+    needs: test
+    if: github.ref != 'refs/heads/trunk' && github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create pull request to trunk
+        env:
+          TOKEN: ${{ secrets.TOKEN }}
+          REPOSITORY: ${{ forgejo.repository }}
+          BRANCH: ${{ forgejo.ref_name }}
+        run: |
+          API="${{ forgejo.api_url }}/repos/${REPOSITORY}/pulls"
+
+          # Commits on this branch that are not on trunk yet
+          git fetch origin trunk
+          LOG=$(git log --reverse --pretty=format:"- %s" origin/trunk..HEAD)
+          if [ -z "$LOG" ]; then
+            echo "No new commits compared to trunk. Nothing to do."
+            exit 0
+          fi
+
+          # Suggested title: subject of the first commit on the branch
+          FIRST_SUBJECT=$(git log --reverse --pretty=format:"%s" origin/trunk..HEAD | head -n 1)
+          TITLE="Auto PR [${BRANCH}]: ${FIRST_SUBJECT}"
+          BODY=$(printf '## Auto-generated pipeline PR\n\n**Branch:** `%s` → `trunk`\n\n### Commits\n\n%s\n' "$BRANCH" "$LOG")
+
+          # Dedup guard: skip if an open PR from this branch to trunk exists
+          OPEN_PR=$(curl -sf \
+            -H "Authorization: token ${TOKEN}" \
+            "${API}?state=open&head=${REPOSITORY}:${BRANCH}&base=trunk" | jq length)
+          if [ "${OPEN_PR}" != "0" ]; then
+            echo "An open PR from ${BRANCH} to trunk already exists. Updating description..."
+            PR_NUMBER=$(curl -sf \
+              -H "Authorization: token ${TOKEN}" \
+              "${API}?state=open&head=${REPOSITORY}:${BRANCH}&base=trunk" | jq -r '.[0].number')
+            curl -sf -X PATCH \
+              -H "Authorization: token ${TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "{\"body\": $(jq -Rn --arg b "$BODY" '$b')}" \
+              "${{ forgejo.api_url }}/repos/${REPOSITORY}/pulls/${PR_NUMBER}"
+            exit 0
+          fi
+
+          jq -n \
+            --arg title "$TITLE" \
+            --arg body "$BODY" \
+            --arg head "$BRANCH" \
+            '{title: $title, body: $body, head: $head, base: "trunk"}' > /tmp/pr.json
+
+          HTTP=$(curl -s -o /tmp/pr-response.json -w "%{http_code}" -X POST \
+            -H "Authorization: token ${TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d @/tmp/pr.json \
+            "$API")
+
+          if [ "$HTTP" = "201" ]; then
+            PR_URL=$(jq -r '.html_url' /tmp/pr-response.json)
+            echo "PR created: ${PR_URL}"
+          else
+            echo "Failed to create PR (HTTP ${HTTP}):"
+            cat /tmp/pr-response.json
+            exit 1
+          fi

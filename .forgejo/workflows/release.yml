@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Versão a ser lançada (ex: v1.2.3)"
+        description: "Version to release (e.g. v1.2.3)"
         required: true
         type: string
 
@@ -29,7 +29,7 @@ jobs:
       - name: Validate version format
         run: |
           if ! echo "$VERSION" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
-            echo "Versão inválida: '$VERSION'. Use o formato vX.Y.Z"
+            echo "Invalid version: '$VERSION'. Expected format vX.Y.Z"
             exit 1
           fi
 
@@ -78,7 +78,7 @@ jobs:
           git config user.email "ci@codeberg.org"
 
           if git rev-parse "$VERSION" >/dev/null 2>&1; then
-            echo "Tag $VERSION já existe."
+            echo "Tag $VERSION already exists."
             exit 1
           fi
 
