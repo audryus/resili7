@@ -55,7 +55,6 @@ jobs:
             '{
               model: $ENV.MODEL,
               stream: false,
-              think: false,
               system: $system,
               prompt: $user,
               options: {
@@ -69,8 +68,8 @@ jobs:
             -H "Content-Type: application/json" \
             -d @/tmp/request.json > /tmp/response.json
 
-          echo "===== OLLAMA RESPONSE ====="
-          jq . /tmp/response.json
+          # Print response without the huge "context" token array
+          jq 'del(.context)' /tmp/response.json
 
           if jq -e '.error' /tmp/response.json >/dev/null 2>&1; then
             echo "Ollama returned an error, no comment will be posted."
