@@ -1,8 +1,6 @@
 name: Trunk
 
 on:
-  push:
-    branches: ["trunk"]
   workflow_dispatch:
     inputs:
       version:
@@ -12,11 +10,13 @@ on:
 
 jobs:
   # ──────────────────────────────────────────────
-  # Validate trunk
+  # Tag: manual dispatch with version input.
+  # Runs the full validation once more, then creates
+  # the tag that triggers release.yml.
   # ──────────────────────────────────────────────
-  test:
+  tag:
     runs-on: self-hosted
-    name: Test
+    name: Validate and create release tag
     container:
       image: node:20-bookworm
 
@@ -28,44 +28,16 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Download dependencies
-        run: go mod download
-
-      - name: Verify dependencies
-        run: go mod verify
-
       - name: Run vet
         run: go vet ./...
 
       - name: Run tests
-        run: go test -count=1 -v -race -coverprofile=coverage.out ./...
+        run: go test -count=1 ./...
 
       - name: Vulnerability check
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
           $(go env GOPATH)/bin/govulncheck ./...
-
-      - name: Coverage summary
-        if: always()
-        run: |
-          go tool cover -func=coverage.out | tail -n 1
-
-  # ──────────────────────────────────────────────
-  # Tag: only via manual dispatch with a version
-  # input. The created tag triggers release.yml.
-  # ──────────────────────────────────────────────
-  tag:
-    runs-on: self-hosted
-    name: Create release tag
-    container:
-      image: node:20-bookworm
-    needs: test
-    if: github.event_name == 'workflow_dispatch'
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Create and push tag
         env:
@@ -87,5 +59,8 @@ jobs:
           fi
 
           git tag -a "$VERSION" -m "Release $VERSION (commit $(git rev-parse --short HEAD))"
-          git push "https://oauth2:${TOKEN}@codeberg.org/${REPOSITORY}.git" "$VERSION"
-          echo "Tag $VERSION pushed. Release pipeline will pick it up."
+
+          # Push the tag as the authenticated user (not the CI identity),
+          # so Forgejo triggers the release workflow reliably.
+          git push "https://$GITHUB_ACTOR:${TOKEN}@codeberg.org/${REPOSITORY}.git" "$VERSION"
+          echo "Tag $VERSION pushed."

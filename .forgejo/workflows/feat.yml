@@ -7,52 +7,15 @@ on:
 
 jobs:
   # ──────────────────────────────────────────────
-  # Validate the feature branch
-  # ──────────────────────────────────────────────
-  test:
-    runs-on: self-hosted
-    name: Test
-    container:
-      image: node:20-bookworm
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
-      - name: Download dependencies
-        run: go mod download
-
-      - name: Verify dependencies
-        run: go mod verify
-
-      - name: Run vet
-        run: go vet ./...
-
-      - name: Run tests
-        run: go test -count=1 -v -race -coverprofile=coverage.out ./...
-
-      - name: Vulnerability check
-        run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
-          $(go env GOPATH)/bin/govulncheck ./...
-
-      - name: Coverage summary
-        if: always()
-        run: |
-          go tool cover -func=coverage.out | tail -n 1
-
-  # ──────────────────────────────────────────────
-  # Auto-PR: after tests pass, open/update a PR
-  # to trunk with this branch's commit list
+  # Auto-PR: open/update a PR to trunk with this
+  # branch's commit list. Validation happens in CI
+  # on the pull request itself.
   # ──────────────────────────────────────────────
   auto-pr:
-    runs-on: gpu
+    runs-on: self-hosted
     name: Auto PR (feat -> trunk)
-    needs: test
+    container:
+      image: node:20-bookworm
 
     steps:
       - uses: actions/checkout@v4
