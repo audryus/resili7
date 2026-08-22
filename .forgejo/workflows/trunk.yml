@@ -11,16 +11,21 @@ on:
 jobs:
   # ──────────────────────────────────────────────
   # Tag: manual dispatch with version input.
-  # Runs the full validation once more, then creates
+  # Validation is expected to have passed on the PR
+  # (ci.yml gates the merge); this job only creates
   # the tag that triggers release.yml.
   # ──────────────────────────────────────────────
   tag:
     runs-on: self-hosted
-    name: Validate and create release tag
+    name: Create release tag
     container:
       image: node:20-bookworm
 
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Create and push tag
         env:
           TOKEN: ${{ secrets.TOKEN }}
