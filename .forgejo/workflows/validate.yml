@@ -2,27 +2,26 @@ name: Validate
 
 on:
   push:
-    branches: ["*"]
+    branches: ["**"]
+    tags-ignore: ["v*"]
+
+permissions:
+  contents: write
 
 jobs:
   test:
     runs-on: self-hosted
-    name: Test (Go ${{ matrix.go-version }})
+    name: Test
     container:
       image: node:20-bookworm
-
-    strategy:
-      fail-fast: false
-      matrix:
-        go-version: ["1.26.4"]
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Go ${{ matrix.go-version }}
+      - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go-version }}
+          go-version-file: go.mod
 
       - name: Download dependencies
         run: go mod download
@@ -34,4 +33,44 @@ jobs:
         run: go vet ./...
 
       - name: Run tests
-        run: go test -v -race -coverprofile=coverage.out ./...
+        run: go test -count=1 -v -race -coverprofile=coverage.out ./...
+
+      - name: Vulnerability check
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          $(go env GOPATH)/bin/govulncheck ./...
+
+  # ──────────────────────────────────────────────
+  # Auto-tag: após o push na trunk passar nos testes,
+  # gera automaticamente a próxima tag patch (vX.Y.Z+1)
+  # ──────────────────────────────────────────────
+  auto-tag:
+    runs-on: self-hosted
+    name: Auto tag (trunk)
+    container:
+      image: node:20-bookworm
+    needs: test
+    if: github.ref == 'refs/heads/trunk'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute and push next tag
+        env:
+          TOKEN: ${{ secrets.TOKEN }}
+          REPOSITORY: ${{ forgejo.repository }}
+        run: |
+          git config user.name  "forgejo-ci"
+          git config user.email "ci@codeberg.org"
+
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          NEXT_TAG=$(echo "$LAST_TAG" | sed -E 's/^v([0-9]+)\.([0-9]+)\.([0-9]+)$/v\1.\2.\3/' | awk -F. '{printf "v%d.%d.%d", substr($1,2), $2, $3+1}')
+
+          echo "Última tag : $LAST_TAG"
+          echo "Próxima tag: $NEXT_TAG"
+
+          git tag -a "$NEXT_TAG" -m "Automated release $NEXT_TAG (commit $(git rev-parse --short HEAD))"
+
+          git push "https://oauth2:${TOKEN}@codeberg.org/${REPOSITORY}.git" "$NEXT_TAG"

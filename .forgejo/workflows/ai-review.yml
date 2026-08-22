@@ -18,8 +18,9 @@ jobs:
 
       - name: Get PR diff
         id: diff
+        env:
+          BASE_BRANCH: ${{ forgejo.base_ref }}
         run: |
-          BASE_BRANCH="${{ forgejo.base_ref }}"
 
           echo "Base: $BASE_BRANCH"
 
@@ -33,7 +34,7 @@ jobs:
         env:
           OLLAMA_HOST: http://host.containers.internal:11434
         run: |
-          MODEL="ornith:35b"
+          MODEL="qwen3.8:27b"
           cat > /tmp/system.txt <<'EOF'
           You are a Principal Software Engineer performing a professional code review.
 
@@ -198,6 +199,7 @@ jobs:
         env:
           TOKEN: ${{ secrets.TOKEN }}
           URL: ${{ forgejo.api_url }}
+          PR_NUMBER: ${{ forgejo.event.number }}
         run: |
           jq -Rs '{body: ("## AI Code Review\n\n" + .)}' /tmp/review.md > /tmp/comment.json
 
@@ -205,4 +207,4 @@ jobs:
             -H "Authorization: token $TOKEN" \
             -H "Content-Type: application/json" \
             -d @/tmp/comment.json \
-            "$URL/repos/${{ forgejo.repository }}/issues/${{ forgejo.event.number }}/comments"
+            "$URL/repos/${{ forgejo.repository }}/issues/${PR_NUMBER}/comments"
