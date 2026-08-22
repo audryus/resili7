@@ -50,10 +50,8 @@ jobs:
   # to trunk with this branch's commit list
   # ──────────────────────────────────────────────
   auto-pr:
-    runs-on: self-hosted
+    runs-on: gpu
     name: Auto PR (feat -> trunk)
-    container:
-      image: node:20-bookworm
     needs: test
 
     steps:
