@@ -1,0 +1,79 @@
+name: Manual Release
+
+# Manual counterpart of `make release VERSION=vX.Y.Z`.
+# Run it from the Actions tab ("Run workflow") and type the version.
+# It validates trunk, creates the annotated tag and pushes it —
+# pushing the tag triggers the Release workflow (changelog + GH release).
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (format vX.Y.Z, pre-releases like v1.0.0-beta.1 allowed)"
+        required: true
+        type: string
+
+concurrency:
+  group: manual-release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    name: Validate trunk and push release tag
+    env:
+      VERSION: ${{ inputs.version }}
+
+    steps:
+      # Always release from trunk, like `make release` (which checks it out first).
+      - uses: actions/checkout@v4
+        with:
+          ref: trunk
+          fetch-depth: 0   # full history + tags for the duplicate-tag check
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Validate version format
+        run: |
+          if ! echo "${VERSION}" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "Invalid version: '${VERSION}'. Expected format vX.Y.Z"
+            exit 1
+          fi
+
+      - name: Check tag does not exist yet
+        run: |
+          git fetch --tags origin
+          if git rev-parse "${VERSION}" >/dev/null 2>&1; then
+            echo "Tag ${VERSION} already exists."
+            exit 1
+          fi
+
+      # Same gate as `make release`: vet + full suite + vulnerability scan.
+      - name: Run vet
+        run: go vet ./...
+
+      - name: Run tests
+        run: go test -count=1 -race -coverprofile=coverage.out ./...
+
+      - name: Vulnerability check
+        run: make vuln
+
+      - name: Create and push release tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${VERSION}" -m "Release ${VERSION} (commit $(git rev-parse --short HEAD))"
+          git push origin "${VERSION}"
+          echo "Released ${VERSION} — the Release workflow now builds the changelog and GitHub Release."
