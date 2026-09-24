@@ -14,8 +14,12 @@ jobs:
   # Auto-PR: open/update a PR to trunk with this
   # branch's commit list. Validation happens in CI
   # on the pull request itself.
-  # Uses the built-in GITHUB_TOKEN via gh — no
-  # custom secret required.
+  #
+  # Uses secrets.TOKEN (a personal access token), NOT
+  # GITHUB_TOKEN: PRs authored by github-actions[bot]
+  # get stuck behind the "awaiting approval" gate and
+  # don't retrigger checks. A PAT authors the PR as
+  # you, so CI + AI review start automatically.
   # ──────────────────────────────────────────────
   auto-pr:
     runs-on: ubuntu-latest
@@ -28,9 +32,16 @@ jobs:
 
       - name: Create or update pull request to trunk
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.TOKEN }}
           BRANCH: ${{ github.ref_name }}
         run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "Missing repository secret TOKEN (a personal access token with 'repo' scope)."
+            echo "Create one at GitHub → Settings → Developer settings → Personal access tokens,"
+            echo "then add it at Repository → Settings → Secrets and variables → Actions → New repository secret."
+            exit 1
+          fi
+
           git fetch origin trunk
 
           # Commits on this branch that are not on trunk yet
