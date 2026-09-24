@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"codeberg.org/audryus/resili7/limiter"
+	"github.com/audryus/resili7/limiter"
 )
 
 // Acquire honors the initial limit and Done releases permits with an

@@ -1,7 +1,7 @@
 package rgrpc
 
 import (
-	"codeberg.org/audryus/resili7/limiter"
+	"github.com/audryus/resili7/limiter"
 )
 
 // NewLimiterMiddleware creates a middleware that enforces concurrency limits using a Limiter instance.

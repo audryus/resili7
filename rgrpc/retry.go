@@ -3,7 +3,7 @@ package rgrpc
 import (
 	"errors"
 
-	"codeberg.org/audryus/resili7/retry"
+	"github.com/audryus/resili7/retry"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

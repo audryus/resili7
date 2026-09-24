@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"codeberg.org/audryus/resili7/timeout"
+	"github.com/audryus/resili7/timeout"
 )
 
 // ErrTimeout is an alias of timeout.ErrTimeout: a single sentinel so callers

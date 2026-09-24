@@ -3,7 +3,7 @@ package retry_test
 import (
 	"testing"
 
-	"codeberg.org/audryus/resili7/retry"
+	"github.com/audryus/resili7/retry"
 )
 
 // TestBudgetAllowRetry verifies that retries are allowed only when

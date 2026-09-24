@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"codeberg.org/audryus/resili7/retry"
+	"github.com/audryus/resili7/retry"
 )
 
 // loopAction is a controllable ResultAction for exercising the retry loop.

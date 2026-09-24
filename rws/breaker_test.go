@@ -3,8 +3,8 @@ package rws_test
 import (
 	"testing"
 
-	"codeberg.org/audryus/resili7/breaker"
-	"codeberg.org/audryus/resili7/rws"
+	"github.com/audryus/resili7/breaker"
+	"github.com/audryus/resili7/rws"
 	"github.com/gorilla/websocket"
 )
 

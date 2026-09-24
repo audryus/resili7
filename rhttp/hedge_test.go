@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"codeberg.org/audryus/resili7/rhttp"
+	"github.com/audryus/resili7/rhttp"
 )
 
 // TestHttpHedgeWithVariableLatency verifies that hedging successfully reduces tail latency

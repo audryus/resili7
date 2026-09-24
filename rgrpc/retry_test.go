@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"codeberg.org/audryus/resili7/retry"
-	"codeberg.org/audryus/resili7/rgrpc"
+	"github.com/audryus/resili7/retry"
+	"github.com/audryus/resili7/rgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"

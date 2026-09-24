@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"codeberg.org/audryus/resili7/breaker"
-	"codeberg.org/audryus/resili7/limiter"
-	"codeberg.org/audryus/resili7/retry"
-	"codeberg.org/audryus/resili7/rgrpc"
-	"codeberg.org/audryus/resili7/rhttp"
-	"codeberg.org/audryus/resili7/rws"
+	"github.com/audryus/resili7/breaker"
+	"github.com/audryus/resili7/limiter"
+	"github.com/audryus/resili7/retry"
+	"github.com/audryus/resili7/rgrpc"
+	"github.com/audryus/resili7/rhttp"
+	"github.com/audryus/resili7/rws"
 	"github.com/gorilla/websocket"
 	"google.golang.org/grpc"
 )

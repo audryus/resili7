@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"codeberg.org/audryus/resili7/retry"
-	"codeberg.org/audryus/resili7/rhttp"
+	"github.com/audryus/resili7/retry"
+	"github.com/audryus/resili7/rhttp"
 )
 
 // M5: the Option constructor must be usable for typed policies without casts.

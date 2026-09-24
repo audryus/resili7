@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"codeberg.org/audryus/resili7/timeout"
+	"github.com/audryus/resili7/timeout"
 )
 
 // NewTimeoutMiddleware creates a middleware that enforces a global timeout for the entire request pipeline.

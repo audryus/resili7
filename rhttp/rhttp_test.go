@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"codeberg.org/audryus/resili7/breaker"
-	"codeberg.org/audryus/resili7/limiter"
-	"codeberg.org/audryus/resili7/retry"
-	"codeberg.org/audryus/resili7/rhttp"
+	"github.com/audryus/resili7/breaker"
+	"github.com/audryus/resili7/limiter"
+	"github.com/audryus/resili7/retry"
+	"github.com/audryus/resili7/rhttp"
 )
 
 func TestHttpNewClient(t *testing.T) {

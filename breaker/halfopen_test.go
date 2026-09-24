@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"codeberg.org/audryus/resili7/breaker"
+	"github.com/audryus/resili7/breaker"
 )
 
 type probeAction struct {
