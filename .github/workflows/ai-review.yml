@@ -43,6 +43,7 @@ jobs:
 
       - name: Run AI Review with Ollama
         id: review_check
+        timeout-minutes: 20
         env:
           OLLAMA_HOST: ${{ vars.OLLAMA_HOST }}
           MODEL: ${{ vars.OLLAMA_MODEL }}
@@ -50,6 +51,34 @@ jobs:
           # Defaults when the repository Variables are not set.
           : "${OLLAMA_HOST:=http://localhost:11434}"
           : "${MODEL:=qwen3.8:27b}"
+          echo "Ollama host: $OLLAMA_HOST | model: $MODEL"
+
+          # --- Pre-flight: fail fast instead of hanging for 12+ minutes ---
+          if ! TAGS=$(curl -sS --connect-timeout 10 --max-time 30 "$OLLAMA_HOST/api/tags" 2>&1); then
+            echo "Cannot reach Ollama at $OLLAMA_HOST. Is 'ollama serve' running on the runner host?"
+            echo "Details: $TAGS"
+            echo "empty=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! echo "$TAGS" | jq -e --arg m "$MODEL" '.models // [] | map(.name) | index($m) != null' >/dev/null; then
+            echo "Model '$MODEL' is not pulled on this host. Run: ollama pull $MODEL"
+            echo "Available models: $(echo "$TAGS" | jq -r '[.models // [] | .[].name] | join(", ")')"
+            echo "empty=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # --- Diff budget: the full-branch diff can exceed num_ctx (8192) ---
+          # and make generation crawl. Cap it, flagging the truncation.
+          DIFF_MAX_CHARS=12000
+          DIFF_RAW="$(cat /tmp/diff.txt)"
+          echo "Diff size: $(wc -l < /tmp/diff.txt) lines, ${#DIFF_RAW} chars"
+          TRUNCATED=""
+          if [ "${#DIFF_RAW}" -gt "$DIFF_MAX_CHARS" ]; then
+            DIFF="$(printf '%s' "$DIFF_RAW" | head -c "$DIFF_MAX_CHARS")"
+            TRUNCATED=$'\n\n[NOTE: diff truncated to fit the model context window; later files were not reviewed.]'
+          else
+            DIFF="$DIFF_RAW"
+          fi
 
           # NOTE: /api/generate is used instead of /api/chat because the
           # chat endpoint parses model output as tool-call XML and crashes
@@ -65,7 +94,7 @@ jobs:
           If there are no significant findings, reply with an empty response."
 
           DIFF="$(cat /tmp/diff.txt)"
-          USER_MSG="$(printf '%s\n\nGit diff:\n\n%s' "$(sed 's/^          //' <<<"$INSTRUCTIONS")" "$DIFF")"
+          USER_MSG="$(printf '%s\n\nGit diff:\n\n%s%s' "$(sed 's/^          //' <<<"$INSTRUCTIONS")" "$DIFF" "$TRUNCATED")"
 
           jq -n \
             --rawfile system .github/ai-review-prompt.md \
@@ -82,9 +111,16 @@ jobs:
               }
             }' > /tmp/request.json
 
-          curl -s "$OLLAMA_HOST/api/generate" \
+          # (In an 'if' condition so 'bash -e' doesn't abort before we handle it.)
+          if ! curl -sS --connect-timeout 10 --max-time 900 "$OLLAMA_HOST/api/generate" \
             -H "Content-Type: application/json" \
-            -d @/tmp/request.json > /tmp/response.json
+            -d @/tmp/request.json > /tmp/response.json; then
+            CURL_RC=$?
+            echo "Ollama request failed/timed out (curl exit $CURL_RC) after up to 15 min."
+            echo "Likely causes: model too slow for this host, or Ollama stalled. Check 'ollama ps' and host resources."
+            echo "empty=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           # Print response without the huge "context" token array
           jq 'del(.context)' /tmp/response.json
