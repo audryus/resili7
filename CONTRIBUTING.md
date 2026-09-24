@@ -332,6 +332,6 @@ The classifier is one of the innermost middlewares because it needs to see the r
 
 ## Questions?
 
-Open an issue on Codeberg or reach out to the maintainer. We are happy to help design new protocol adapters or middleware implementations.
+Open an issue on GitHub or reach out to the maintainer. We are happy to help design new protocol adapters or middleware implementations.
 
 > No, I'm not happy to help. This IA think I'm a slave.

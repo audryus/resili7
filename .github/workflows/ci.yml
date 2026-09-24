@@ -6,9 +6,12 @@ on:
   pull_request:
     branches: ["trunk"]
 
+permissions:
+  contents: read
+
 jobs:
   test:
-    runs-on: gpu
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4

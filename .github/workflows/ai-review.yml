@@ -4,20 +4,34 @@ on:
   pull_request:
     types: [opened, synchronize]
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   review:
-    runs-on: gpu
+    # Runs on your own machine (Ollama lives there).
+    # Configure OLLAMA_HOST / OLLAMA_MODEL as repository Variables
+    # (Settings → Secrets and variables → Actions → Variables).
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Install deps
-        run: apt-get update && apt-get install -y curl jq git
+      - name: Install deps if missing
+        run: |
+          missing=0
+          for t in curl jq git; do
+            command -v "$t" >/dev/null || missing=1
+          done
+          if [ "$missing" = "1" ]; then
+            sudo apt-get update && sudo apt-get install -y curl jq git
+          fi
 
       - name: Get PR diff
         env:
-          BASE_BRANCH: ${{ forgejo.base_ref }}
+          BASE_BRANCH: ${{ github.base_ref }}
         run: |
           echo "Base: $BASE_BRANCH"
 
@@ -30,9 +44,13 @@ jobs:
       - name: Run AI Review with Ollama
         id: review_check
         env:
-          OLLAMA_HOST: http://host.containers.internal:11434
-          MODEL: qwen3.8:27b
+          OLLAMA_HOST: ${{ vars.OLLAMA_HOST }}
+          MODEL: ${{ vars.OLLAMA_MODEL }}
         run: |
+          # Defaults when the repository Variables are not set.
+          : "${OLLAMA_HOST:=http://localhost:11434}"
+          : "${MODEL:=qwen3.8:27b}"
+
           # NOTE: /api/generate is used instead of /api/chat because the
           # chat endpoint parses model output as tool-call XML and crashes
           # on responses containing <function>/<parameter> tags
@@ -50,7 +68,7 @@ jobs:
           USER_MSG="$(printf '%s\n\nGit diff:\n\n%s' "$(sed 's/^          //' <<<"$INSTRUCTIONS")" "$DIFF")"
 
           jq -n \
-            --rawfile system .forgejo/ai-review-prompt.md \
+            --rawfile system .github/ai-review-prompt.md \
             --arg user "$USER_MSG" \
             '{
               model: $ENV.MODEL,
@@ -95,15 +113,15 @@ jobs:
       - name: Comment on PR via API
         if: steps.review_check.outputs.empty != 'true'
         env:
-          TOKEN: ${{ secrets.TOKEN }}
-          URL: ${{ forgejo.api_url }}
-          REPOSITORY: ${{ forgejo.repository }}
-          PR_NUMBER: ${{ forgejo.event.number }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           jq -Rs '{body: ("## AI Code Review\n\n" + .)}' /tmp/review.md > /tmp/comment.json
 
           curl --fail \
-            -H "Authorization: token $TOKEN" \
+            -H "Authorization: Bearer $GH_TOKEN" \
             -H "Content-Type: application/json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
             -d @/tmp/comment.json \
-          "$URL/repos/${REPOSITORY}/issues/${PR_NUMBER}/comments"
+          "https://api.github.com/repos/${REPOSITORY}/issues/${PR_NUMBER}/comments"
