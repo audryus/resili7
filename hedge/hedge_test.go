@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"codeberg.org/audryus/resili7/hedge"
+	"github.com/audryus/resili7/hedge"
 )
 
 // Winner result is returned; slow losers must observe cancellation so they

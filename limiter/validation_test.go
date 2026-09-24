@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"codeberg.org/audryus/resili7/limiter"
+	"github.com/audryus/resili7/limiter"
 )
 
 // M2: empty GainCycle must not panic with div-by-zero in adjust().

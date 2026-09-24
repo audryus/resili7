@@ -67,6 +67,6 @@ jobs:
     steps:
       - name: Fetch module from proxy to trigger indexing
         run: |
-          MODULE="codeberg.org/audryus/resili7"
+          MODULE="github.com/audryus/resili7"
           curl -sSf "https://proxy.golang.org/${MODULE}/@v/${VERSION}.info" || true
           curl -sSf "https://sum.golang.org/lookup/${MODULE}@${VERSION}" || true

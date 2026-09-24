@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"codeberg.org/audryus/resili7/rhttp"
-	"codeberg.org/audryus/resili7/timeout"
+	"github.com/audryus/resili7/rhttp"
+	"github.com/audryus/resili7/timeout"
 )
 
 // TestTimeout verifies that the global timeout correctly interrupts slow requests

@@ -5,7 +5,7 @@ import (
 	"io"
 	"net"
 
-	"codeberg.org/audryus/resili7/retry"
+	"github.com/audryus/resili7/retry"
 	"github.com/gorilla/websocket"
 )
 

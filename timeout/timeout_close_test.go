@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"codeberg.org/audryus/resili7/timeout"
+	"github.com/audryus/resili7/timeout"
 )
 
 type slowAction struct {

@@ -146,7 +146,7 @@ Each wrapper imports the protocol-agnostic algorithm and wraps it with protocol-
 package rmqtt
 
 import (
-    "codeberg.org/audryus/resili7/breaker"
+    "github.com/audryus/resili7/breaker"
 )
 
 func NewBreakerMiddleware(cb *breaker.CircuitBreaker) Middleware {

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"codeberg.org/audryus/resili7/limiter"
-	"codeberg.org/audryus/resili7/rws"
+	"github.com/audryus/resili7/limiter"
+	"github.com/audryus/resili7/rws"
 	"github.com/gorilla/websocket"
 )
 

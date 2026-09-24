@@ -3,7 +3,7 @@
 **resili7** is a high-performance, zero-allocation resilience pipeline for Go.
 Designed for ultra-low latency services, it provides fault-tolerance patterns with minimal CPU and memory overhead.
 
-[![Go Report Card](https://goreportcard.com/badge/codeberg.org/audryus/resili7)](https://goreportcard.com/report/codeberg.org/audryus/resili7)
+[![Go Report Card](https://goreportcard.com/badge/github.com/audryus/resili7)](https://goreportcard.com/report/github.com/audryus/resili7)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 > [!CAUTION]
@@ -38,7 +38,7 @@ Designed for ultra-low latency services, it provides fault-tolerance patterns wi
 ## Installation
 
 ```bash
-go get codeberg.org/audryus/resili7
+go get github.com/audryus/resili7
 ```
 
 ---

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"codeberg.org/audryus/resili7/breaker"
-	"codeberg.org/audryus/resili7/rgrpc"
+	"github.com/audryus/resili7/breaker"
+	"github.com/audryus/resili7/rgrpc"
 	"google.golang.org/grpc"
 )
 

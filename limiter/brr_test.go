@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"codeberg.org/audryus/resili7/limiter"
+	"github.com/audryus/resili7/limiter"
 )
 
 // TestLimiter_AcquireExhaust verifies that the limiter correctly tracks permits

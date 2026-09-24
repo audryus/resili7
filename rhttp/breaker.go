@@ -3,7 +3,7 @@ package rhttp
 import (
 	"net/http"
 
-	"codeberg.org/audryus/resili7/breaker"
+	"github.com/audryus/resili7/breaker"
 )
 
 // NewBreakerMiddleware creates a middleware that protects the handler using a circuit breaker.

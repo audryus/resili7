@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"testing"
 
-	"codeberg.org/audryus/resili7/breaker"
-	"codeberg.org/audryus/resili7/rhttp"
+	"github.com/audryus/resili7/breaker"
+	"github.com/audryus/resili7/rhttp"
 )
 
 // BenchmarkHttpCircuitBreak measures the total performance and memory allocations of the circuit breaker middleware.

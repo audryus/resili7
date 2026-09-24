@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"codeberg.org/audryus/resili7/limiter"
-	"codeberg.org/audryus/resili7/rhttp"
+	"github.com/audryus/resili7/limiter"
+	"github.com/audryus/resili7/rhttp"
 )
 
 // TestHttpLimiter verifies the end-to-end behavior of the limiter middleware.

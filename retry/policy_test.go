@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"codeberg.org/audryus/resili7/retry"
+	"github.com/audryus/resili7/retry"
 )
 
 var errTest = errors.New("test error")

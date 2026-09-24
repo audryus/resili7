@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"codeberg.org/audryus/resili7/hedge"
+	"github.com/audryus/resili7/hedge"
 )
 
 // NewHedgeMiddleware creates a middleware that implements the Hedged Requests pattern.

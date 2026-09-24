@@ -1,4 +1,4 @@
-module codeberg.org/audryus/resili7
+module github.com/audryus/resili7
 
 go 1.27.0
 

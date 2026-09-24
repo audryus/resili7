@@ -11,8 +11,8 @@ import (
 	"google.golang.org/grpc/interop/grpc_testing"
 	"google.golang.org/grpc/status"
 
-	"codeberg.org/audryus/resili7/retry"
-	"codeberg.org/audryus/resili7/rgrpc"
+	"github.com/audryus/resili7/retry"
+	"github.com/audryus/resili7/rgrpc"
 )
 
 func fakeServer(t *testing.T, onCall func() error) (net.Listener, func()) {

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"codeberg.org/audryus/resili7/rws"
+	"github.com/audryus/resili7/rws"
 	"github.com/gorilla/websocket"
 )
 
