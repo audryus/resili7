@@ -89,7 +89,7 @@ func TestHttpHedgeDisabledWithInvalidParams(t *testing.T) {
 // BenchmarkHttpHedge measures the overhead of the hedging middleware itself.
 // Since hedging involves starting goroutines, it is expected to have at least 1 allocation.
 //
-// BenchmarkHttpHedge/Hedge_Overhead-12         	 2185689	       527.1 ns/op	      64 B/op	       1 allocs/op
+// BenchmarkHttpHedge/Hedge_Overhead-12         	 1392134	       888.7 ns/op	     512 B/op	       5 allocs/op
 func BenchmarkHttpHedge(b *testing.B) {
 	req, _ := http.NewRequest(http.MethodGet, "http://localhost", nil)
 	dummyResp := &http.Response{StatusCode: 200}

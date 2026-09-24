@@ -12,11 +12,15 @@ type Budget struct {
 	ratio int64 // Scale factor of 1000 (e.g., 10% = 100)
 }
 
+// defaultBudgetRatio is used when the caller passes an out-of-range ratio.
+const defaultBudgetRatio = 0.2
+
 // NewBudget creates a new retry budget with the given ratio (0.0 to 1.0).
 // A ratio of 0.1 allows 1 retry for every 10 successful requests.
+// Out-of-range values (<=0, >1, NaN, +Inf) fall back to the default of 0.2.
 func NewBudget(ratio float64) *Budget {
-	if ratio <= 0 {
-		ratio = 0.2 // Default to 20% if invalid
+	if !(ratio > 0 && ratio <= 1) {
+		ratio = defaultBudgetRatio
 	}
 
 	return &Budget{
@@ -32,26 +36,42 @@ func (b *Budget) RecordSuccess() {
 
 // AllowRetry checks if a retry is permitted within the current budget.
 // If permitted, it increments the retry counter and returns true.
-// This is a thread-safe, lock-free implementation.
+// This is a thread-safe, lock-free implementation using a CAS loop so
+// concurrent callers cannot overshoot the budget.
 func (b *Budget) AllowRetry() bool {
-	success := b.success.Load()
-	retries := b.retries.Load()
+	ratio := uint64(b.ratio)
+	for {
+		success := b.success.Load()
+		retries := b.retries.Load()
 
-	// allowed = (success * ratio) / 1000
-	allowed := (success * uint64(b.ratio)) / 1000
+		// allowed = (success * ratio) / 1000
+		allowed := (success * ratio) / 1000
 
-	if retries >= allowed {
-		return false
+		if retries >= allowed {
+			return false
+		}
+
+		// Only increment the retry counter if the retry is actually allowed.
+		if b.retries.CompareAndSwap(retries, retries+1) {
+			return true
+		}
 	}
-
-	// Only increment the retry counter if the retry is actually allowed.
-	b.retries.Add(1)
-	return true
 }
 
 // Decay reduces the historical data by half to give more weight to recent performance.
 // This should be called periodically (e.g., every 10-60 seconds).
+// It uses CAS loops so concurrent AllowRetry/RecordSuccess calls cannot lose updates.
 func (b *Budget) Decay() {
-	b.success.Store(b.success.Load() / 2)
-	b.retries.Store(b.retries.Load() / 2)
+	for {
+		s := b.success.Load()
+		if b.success.CompareAndSwap(s, s/2) {
+			break
+		}
+	}
+	for {
+		r := b.retries.Load()
+		if b.retries.CompareAndSwap(r, r/2) {
+			break
+		}
+	}
 }

@@ -23,12 +23,17 @@ func Execute[R any, A ResultAction[R]](d time.Duration, action A) (err error) {
 
 // ExecuteWithResult executes the action with timeout enforcement.
 // Returns (R, error) to support pass-by-value semantics for zero-allocation in the hot path.
+//
+// Connection-close semantics: when the deadline has passed the caller gets
+// the zero value of R with ErrTimeout — never a partial response it might
+// treat as usable (e.g. an HTTP Body it would fail to Close, leaking the
+// connection).
 func ExecuteWithResult[R any, A ResultAction[R]](d time.Duration, action A) (resp R, err error) {
 	now := action.Now()
 	requestDeadline := action.RequestDeadline()
 
 	// Initialize the RequestDeadline if it hasn't been set by an outer middleware.
-	if action.RequestDeadline() == 0 {
+	if requestDeadline == 0 {
 		requestDeadline = now + int64(d)
 	}
 
@@ -41,10 +46,11 @@ func ExecuteWithResult[R any, A ResultAction[R]](d time.Duration, action A) (res
 	resp, err = action.Execute()
 
 	// Post-execution check: even if the handler succeeded, if it finished after the deadline,
-	// we return ErrTimeout to ensure strict timing guarantees.
+	// we return the zero value with ErrTimeout to ensure strict timing guarantees.
 	// Note: We call time.Now() here to get the most accurate finish time.
 	if time.Now().UnixNano() > requestDeadline {
-		return resp, ErrTimeout
+		var zero R
+		return zero, ErrTimeout
 	}
 
 	return resp, err

@@ -99,7 +99,7 @@ type CircuitBreaker struct {
 	window           atomic.Pointer[windowStats] // Pointer to the active window statistics.
 	mu               sync.Mutex                  // Protects state transitions in the slow path.
 	state            atomic.Uint32               // Current breaker state.
-	HalfOpenInFlight bool                        // Tracks whether a half-open probe is already in flight.
+	halfOpenInFlight atomic.Bool                 // Tracks whether a half-open probe is already in flight.
 }
 
 // NewBreaker creates a new CircuitBreaker with default or custom options.
@@ -123,10 +123,10 @@ func NewBreaker(opts ...Option) *CircuitBreaker {
 	return cb
 }
 
-func (cb *CircuitBreaker) Lock() {
+func (cb *CircuitBreaker) lock() {
 	cb.mu.Lock()
 }
-func (cb *CircuitBreaker) Unlock() {
+func (cb *CircuitBreaker) unlock() {
 	cb.mu.Unlock()
 }
 
@@ -196,12 +196,12 @@ func ExecuteWithResult[R any, A ResultAction[R]](cb *CircuitBreaker, action A) (
 			// Equivalent to: fail * 1024 >= threshold * total
 			if int64(fail)*1024 >= cb.errorThreshold*int64(total) {
 
-				cb.Lock()
+				cb.lock()
 				if State(cb.state.Load()) == StateClosed {
 					cb.state.Store(uint32(StateOpen))
 					cb.lastFailTime = time.Now().UnixNano()
 				}
-				cb.Unlock()
+				cb.unlock()
 			}
 		}
 
@@ -210,7 +210,7 @@ func ExecuteWithResult[R any, A ResultAction[R]](cb *CircuitBreaker, action A) (
 
 	// SLOW PATH — OPEN or HALF-OPEN
 	// Handles state transitions and recovery testing.
-	cb.Lock()
+	cb.lock()
 
 	state := State(cb.state.Load())
 	now := time.Now().UnixNano()
@@ -221,29 +221,29 @@ func ExecuteWithResult[R any, A ResultAction[R]](cb *CircuitBreaker, action A) (
 			cb.state.Store(uint32(StateHalfOpen))
 			state = StateHalfOpen
 		} else {
-			cb.Unlock()
+			cb.unlock()
 			return resp, ErrCircuitOpen
 		}
 	}
 
 	if state == StateHalfOpen {
 		// Only allow one request at a time during Half-Open testing.
-		if cb.HalfOpenInFlight {
-			cb.Unlock()
+		if cb.halfOpenInFlight.Load() {
+			cb.unlock()
 			return resp, ErrCircuitOpen
 		}
-		cb.HalfOpenInFlight = true
+		cb.halfOpenInFlight.Store(true)
 	}
 
-	cb.Unlock()
+	cb.unlock()
 
 	resp, err = action.Execute()
 
-	cb.Lock()
-	defer cb.Unlock()
+	cb.lock()
+	defer cb.unlock()
 
 	if State(cb.state.Load()) == StateHalfOpen {
-		cb.HalfOpenInFlight = false
+		cb.halfOpenInFlight.Store(false)
 
 		if cb.isFailure(err) {
 			// If the trial request fails, move back to Open.
