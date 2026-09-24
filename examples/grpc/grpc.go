@@ -39,7 +39,7 @@ func main() {
 }
 
 func run() error {
-	lis, err := net.Listen("tcp", "localhost:50051")
+	lis, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		return fmt.Errorf("listen failed: %w", err)
 	}
@@ -62,6 +62,7 @@ func run() error {
 		limiter.WithInitialLimit(100),
 		limiter.WithLimits(10, 1000),
 	)
+	defer l.Close()
 
 	budget := retry.NewBudget(0.5)
 	for i := 0; i < 50; i++ {

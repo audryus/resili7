@@ -19,15 +19,17 @@ profile:
 	go test -bench=BenchmarkWsFullStack -cpuprofile ws_cpu.pprof ./
 	@echo "Profile generated in cpu.pprof. Use 'make profile-web' for visual analysis."
 
-# Launches the pprof web interface on port 8080.
+# Launches the pprof web interface.
+# Usage: make profile-web PROFILE=http_cpu.pprof (defaults to cpu.pprof).
 # Requires Graphviz to be installed for visual graph generation.
+PROFILE ?= cpu.pprof
 profile-web:
-	go tool pprof -http=:8080 cpu.pprof
+	go tool pprof -http=:8080 $(PROFILE)
 
 # Cleans test caches and removes profiling artifacts.
 clean:
 	go clean -testcache
-	rm -f cpu.pprof
+	rm -f cpu.pprof http_cpu.pprof grpc_cpu.pprof ws_cpu.pprof
 
 update:
 	@git fetch origin trunk

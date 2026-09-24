@@ -20,9 +20,10 @@ import (
 // BenchmarkHttpFullStack measures the total performance and memory allocations of the entire pipeline.
 // The goal of resili7 is to achieve near-zero allocations (typically 1-2 per request due to goroutines).
 //
-// BenchmarkHttpFullStack/With_All-12               1275505               921.6 ns/op            64 B/op          1 allocs/op
+// BenchmarkHttpFullStack/With_All-12               5134759               252.6 ns/op            40 B/op          2 allocs/op
 func BenchmarkHttpFullStack(b *testing.B) {
 	l := limiter.NewLimiter(limiter.WithInitialLimit(1000000))
+	b.Cleanup(func() { l.Close() })
 	cb := breaker.NewBreaker()
 
 	// Pre-allocate a response to avoid noise during benchmarking.
@@ -69,9 +70,10 @@ func BenchmarkHttpFullStack(b *testing.B) {
 // BenchmarkGrpcFullStack measures the total performance and memory allocations of the entire pipeline.
 // The goal of resili7 is to achieve near-zero allocations (typically 1-2 per request due to goroutines).
 //
-// BenchmarkGrpcFullStack/With_All-12                922318              1377 ns/op             304 B/op          3 allocs/op
+// BenchmarkGrpcFullStack/With_All-12                 697485              1434 ns/op             416 B/op          5 allocs/op
 func BenchmarkGrpcFullStack(b *testing.B) {
 	l := limiter.NewLimiter(limiter.WithInitialLimit(1000000))
+	b.Cleanup(func() { l.Close() })
 	cb := breaker.NewBreaker()
 
 	budget := retry.NewBudget(0.5)
@@ -116,7 +118,7 @@ func BenchmarkGrpcFullStack(b *testing.B) {
 // Note: URL is intentionally not set in the request to isolate library overhead.
 // Setting URL triggers actual WebSocket dials, which include HTTP/TCP handshake allocations (see WS dialing overhead test).
 //
-// BenchmarkWsFullStack/With_All-12                 5205252               235.1 ns/op             0 B/op          0 allocs/op
+// BenchmarkWsFullStack/With_All-12                 4964210               226.9 ns/op             0 B/op          0 allocs/op
 func BenchmarkWsFullStack(b *testing.B) {
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
@@ -136,6 +138,7 @@ func BenchmarkWsFullStack(b *testing.B) {
 	_ = server // server is used for setup, URL not needed for mock handler
 
 	l := limiter.NewLimiter(limiter.WithInitialLimit(1000000))
+	b.Cleanup(func() { l.Close() })
 	cb := breaker.NewBreaker()
 
 	budget := retry.NewBudget(0.5)
@@ -163,7 +166,7 @@ func BenchmarkWsFullStack(b *testing.B) {
 		}),
 		// Note: Hedge is disabled here because we're testing mock handler overhead, not dialing overhead.
 		// Hedge with a URL would trigger real WebSocket dials which include all HTTP/TCP handshake allocations.
-		Hedge:          rws.NewHedgeMiddleware(websocket.DefaultDialer.Dial, 100*time.Millisecond, 2),
+		Hedge:          rws.NewHedgeMiddleware(websocket.DefaultDialer.DialContext, 100*time.Millisecond, 2),
 		Limiter:        rws.NewLimiterMiddleware(l),
 		CircuitBreaker: rws.NewBreakerMiddleware(cb),
 	})

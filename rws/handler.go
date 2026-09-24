@@ -37,14 +37,19 @@ type Middleware func(Handler) Handler
 // Client is the primary entry point for the WebSocket resilience library.
 // It holds the compiled middleware chain and executes requests through the pipeline.
 type Client struct {
-	chain Handler
+	chain       Handler
+	messageType int // Default WebSocket message type applied when a Request leaves it unset.
 }
 
 // Send executes the given Request through the pre-configured resilience pipeline.
-// It initializes the Request context, including the initial timestamp (Now).
+// It initializes the Request context, including the initial timestamp (Now),
+// and applies the pipeline default message type when the request leaves it unset.
 func (c *Client) Send(r Request) (*Response, error) {
 	if r.Now == 0 {
 		r.Now = time.Now().UnixNano()
+	}
+	if r.MessageType == 0 {
+		r.MessageType = c.messageType
 	}
 	return c.chain(r)
 }

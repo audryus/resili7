@@ -31,6 +31,7 @@ func run() error {
 		limiter.WithInitialLimit(100),
 		limiter.WithLimits(10, 1000),
 	)
+	defer l.Close()
 
 	budget := retry.NewBudget(0.5)
 	for range 50 {
@@ -50,6 +51,7 @@ func run() error {
 		Hedge:          rhttp.NewHedgeMiddleware(50*time.Millisecond, 3),
 		Limiter:        rhttp.NewLimiterMiddleware(l),
 		CircuitBreaker: rhttp.NewBreakerMiddleware(cb),
+		Classifier:     rhttp.NewClassifierMiddleware(),
 	}
 
 	client, err := rhttp.NewClient(pipeline)

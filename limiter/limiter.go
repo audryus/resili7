@@ -2,6 +2,7 @@ package limiter
 
 import (
 	"errors"
+	"time"
 )
 
 var ErrLimited = errors.New("rate limited")
@@ -33,9 +34,9 @@ func ExecuteWithResult[R any, A ResultAction[R]](l *Limiter, action A) (resp R, 
 	// Execute the rest of the pipeline.
 	resp, err = action.Execute()
 
-	// Report the result back to the limiter.
+	// Report the result back to the limiter, capturing the end timestamp once.
 	// Success is defined as err == nil.
-	l.Done(start, err == nil)
+	l.Done(start, time.Now().UnixNano(), err == nil)
 
 	return resp, err
 }

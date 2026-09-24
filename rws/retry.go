@@ -35,12 +35,13 @@ func (a action) ShouldRetryDefault(resp *Response, err error) bool {
 }
 
 // Err wraps the error for retry handling.
-// If error is nil, it returns ErrRetry to signal exhaustion.
+// It joins retry.ErrRetry with the last error so exhaustion is signalled
+// while the causal error stays unwrappable. A nil error yields ErrRetry.
 func (a action) Err(err error) error {
 	if err == nil {
 		return retry.ErrRetry
 	}
-	return err
+	return errors.Join(retry.ErrRetry, err)
 }
 
 // ShouldRetryDefault returns true if the error warrants a retry.

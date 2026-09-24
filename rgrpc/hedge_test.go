@@ -107,7 +107,7 @@ func TestGrpcHedgeDisabledWithInvalidParams(t *testing.T) {
 // BenchmarkGrpcHedge measures the overhead of the hedging middleware itself.
 // Since hedging involves starting goroutines, it is expected to have at least 1 allocation.
 //
-// BenchmarkGrpcHedge/Hedge_Overhead-12         	 1609233	       744.8 ns/op	     304 B/op	       3 allocs/op
+// BenchmarkGrpcHedge/Hedge_Overhead-12         	 1341830	       898.3 ns/op	     416 B/op	       5 allocs/op
 func BenchmarkGrpcHedge(b *testing.B) {
 	mockInvoker := func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
 		return nil

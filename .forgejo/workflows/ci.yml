@@ -1,6 +1,8 @@
 name: CI
 
 on:
+  push:
+    branches: ["trunk"]
   pull_request:
     branches: ["trunk"]
 
@@ -33,10 +35,17 @@ jobs:
 
       - name: Vulnerability check
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
           $(go env GOPATH)/bin/govulncheck ./...
 
       - name: Coverage summary
         if: always()
         run: |
           go tool cover -func=coverage.out | tail -n 1
+
+      - name: Coverage threshold (60%)
+        if: always()
+        run: |
+          total=$(go tool cover -func=coverage.out | tail -n 1 | grep -oE '[0-9]+\.[0-9]+%' | tr -d '%')
+          echo "Total coverage: ${total}%"
+          awk -v cov="$total" 'BEGIN { if (cov + 0 < 60) { print "Coverage below 60% threshold"; exit 1 } }'

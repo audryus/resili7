@@ -2,6 +2,7 @@ package limiter
 
 import (
 	"log"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -30,6 +31,25 @@ func NewLimiter(opts ...Option) *Limiter {
 		fn(&o)
 	}
 
+	// Guard against misconfiguration that would panic in adjust():
+	// an empty gain cycle would divide by zero, non-positive limits or
+	// intervals would wedge the control loop.
+	if len(o.GainCycle) == 0 {
+		o.GainCycle = defaultOptions().GainCycle
+	}
+	if o.InitialLimit <= 0 {
+		o.InitialLimit = 1
+	}
+	if o.MinLimit <= 0 {
+		o.MinLimit = 1
+	}
+	if o.MaxLimit < o.MinLimit {
+		o.MaxLimit = o.MinLimit
+	}
+	if o.UpdateInterval <= 0 {
+		o.UpdateInterval = 200 * time.Millisecond
+	}
+
 	l := &Limiter{
 		opts:   o,
 		stopCh: make(chan struct{}),
@@ -40,7 +60,10 @@ func NewLimiter(opts ...Option) *Limiter {
 	l.rttMin.Store(int64(time.Hour)) // Initialize with a high value.
 
 	// Start the background control loop to adjust limits periodically.
+	// A finalizer is set as a safety net so a forgotten Close does not leak
+	// the goroutine forever; explicit Close remains the supported path.
 	go l.controlLoop()
+	runtime.SetFinalizer(l, func(l *Limiter) { _ = l.Close() })
 
 	return l
 }
@@ -84,9 +107,23 @@ func (l *Limiter) Acquire(now int64) (int64, bool) {
 }
 
 // Done releases a permit and records the request latency (RTT).
-// It should be called after the request finishes.
-func (l *Limiter) Done(start int64, success bool) {
-	l.inflight.Add(-1)
+// It should be called after the request finishes. end is the completion
+// timestamp (UnixNano); passing it explicitly honors the clock-optimized
+// contract — callers capture time once and reuse it instead of paying for an
+// extra time.Now() call here.
+//
+// A Done without a matching Acquire (or a double Done) is ignored instead of
+// driving inflight negative.
+func (l *Limiter) Done(start, end int64, success bool) {
+	for {
+		in := l.inflight.Load()
+		if in <= 0 {
+			return
+		}
+		if l.inflight.CompareAndSwap(in, in-1) {
+			break
+		}
+	}
 
 	if !success {
 		// We only adjust based on successful samples to avoid poisoning metrics
@@ -95,7 +132,7 @@ func (l *Limiter) Done(start int64, success bool) {
 	}
 
 	// Calculate RTT and update statistical models.
-	l.observeRTT(time.Now().UnixNano() - start)
+	l.observeRTT(end - start)
 }
 
 // observeRTT updates the Minimum RTT and the Exponential Moving Average.

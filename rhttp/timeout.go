@@ -1,6 +1,7 @@
 package rhttp
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -18,10 +19,30 @@ func NewTimeoutMiddleware(d time.Duration) Middleware {
 				req.RequestDeadline = req.Now + int64(d)
 			}
 
-			return timeout.ExecuteWithResult(d, action{
-				h:   next,
+			// Guard the inner handler: a response that completes after the
+			// deadline must have its body closed here (connection-close
+			// semantics) because the timeout layer reports a zero response
+			// and the caller will never see — or close — this body.
+			guarded := Handler(func(r Request) (*http.Response, error) {
+				resp, err := next(r)
+				if err == nil && resp != nil && r.RequestDeadline > 0 &&
+					time.Now().UnixNano() > r.RequestDeadline {
+					if resp.Body != nil {
+						resp.Body.Close()
+					}
+					return nil, timeout.ErrTimeout
+				}
+				return resp, err
+			})
+
+			resp, err := timeout.ExecuteWithResult(d, action{
+				h:   guarded,
 				req: req,
 			})
+			if errors.Is(err, timeout.ErrTimeout) {
+				return nil, err
+			}
+			return resp, err
 		}
 	}
 }

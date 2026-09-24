@@ -1,6 +1,7 @@
 package rhttp
 
 import (
+	"errors"
 	"net/http"
 
 	"codeberg.org/audryus/resili7/retry"
@@ -30,11 +31,22 @@ func (a action) ShouldRetryDefault(resp *http.Response, err error) bool {
 }
 
 // Err normalizes the final error returned after the retry loop is exhausted.
+// It joins retry.ErrRetry with the last network error so errors.Is(err,
+// retry.ErrRetry) still signals exhaustion while the causal error stays
+// unwrappable. A nil error (e.g. exhausted HTTP 5xx retries) yields ErrRetry.
 func (a action) Err(err error) error {
 	if err == nil {
 		return retry.ErrRetry
 	}
-	return err
+	return errors.Join(retry.ErrRetry, err)
+}
+
+// DiscardAttempt closes the body of a response the retry loop will not
+// return, preventing connection leaks from discarded attempts.
+func (a action) DiscardAttempt(resp *http.Response) {
+	if resp != nil && resp.Body != nil {
+		resp.Body.Close()
+	}
 }
 
 // ShouldRetryDefault returns a strategy that retries on network errors (err != nil)

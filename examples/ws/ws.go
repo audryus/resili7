@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"time"
 
@@ -44,9 +45,15 @@ func main() {
 }
 
 func run() error {
-	server := http.Server{Addr: "localhost:8080", Handler: http.HandlerFunc(echoHandler)}
-	go server.ListenAndServe()
+	lis, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		return fmt.Errorf("listen failed: %w", err)
+	}
+	server := http.Server{Handler: http.HandlerFunc(echoHandler)}
+	go server.Serve(lis)
 	defer server.Close()
+
+	wsURL := "ws://" + lis.Addr().String()
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -61,6 +68,7 @@ func run() error {
 		limiter.WithInitialLimit(100),
 		limiter.WithLimits(10, 1000),
 	)
+	defer l.Close()
 
 	budget := retry.NewBudget(0.5)
 	for range 50 {
@@ -69,7 +77,7 @@ func run() error {
 
 	pipeline := rws.Pipeline{
 		Connector: func() (*websocket.Conn, error) {
-			conn, _, err := websocket.DefaultDialer.Dial("ws://localhost:8080", nil)
+			conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 			return conn, err
 		},
 		Timeout: rws.NewTimeoutMiddleware(rws.TimeoutConfig{
@@ -84,7 +92,7 @@ func run() error {
 			Budget:      budget,
 			TryDeadline: 2 * time.Second,
 		}),
-		Hedge:          rws.NewHedgeMiddleware(websocket.DefaultDialer.Dial, 50*time.Millisecond, 3),
+		Hedge:          rws.NewHedgeMiddleware(websocket.DefaultDialer.DialContext, 50*time.Millisecond, 3),
 		Limiter:        rws.NewLimiterMiddleware(l),
 		CircuitBreaker: rws.NewBreakerMiddleware(cb),
 		MessageType:    websocket.TextMessage,
@@ -98,7 +106,7 @@ func run() error {
 	resp, err := client.Send(rws.Request{
 		Data:        []byte("hello from resili7"),
 		MessageType: websocket.TextMessage,
-		URL:         "ws://localhost:8080",
+		URL:         wsURL,
 	})
 	if err != nil {
 		return fmt.Errorf("WebSocket send failed: %w", err)

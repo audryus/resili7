@@ -25,7 +25,7 @@ type Pipeline struct {
 	Limiter               Middleware   // Rate limiting or concurrency control.
 	CircuitBreaker        Middleware   // Fault tolerance and failure isolation.
 	Classifier            Middleware
-	RetryHedgeFanoutLimit int            // Maximum number of hedge attempts to allow when Retry and Hedge are both enabled.
+	RetryHedgeFanoutLimit int            // Fan-out control when Retry+Hedge are both set: >0 wraps retry around hedge; <=0 runs retry alone (hedge disabled) so Retry is never silently dropped.
 	Retry429Policy        Retry429Policy // Policy for handling HTTP 429 responses during retries.
 }
 
@@ -87,17 +87,20 @@ func NewClient(pipeline Pipeline) (*Client, error) {
 
 // wrapHedgeWithRetryLimit composes hedge and retry middleware while allowing the caller
 // to cap the combined fan-out when both strategies are enabled.
+//
+// A fanoutLimit > 0 wraps retry around hedge (bounded combined fan-out).
+// A fanoutLimit <= 0 disables the combined path and runs retry alone so the
+// retry policy is never silently dropped.
 func wrapHedgeWithRetryLimit(hedgeMW, retryMW Middleware, next Handler, fanoutLimit int) Handler {
 	return func(req Request) (*http.Response, error) {
 		if hedgeMW != nil {
-			h := hedgeMW(next)
 			if retryMW != nil {
 				if fanoutLimit > 0 {
-					return retryMW(h)(req)
+					return retryMW(hedgeMW(next))(req)
 				}
-				return h(req)
+				return retryMW(next)(req)
 			}
-			return h(req)
+			return hedgeMW(next)(req)
 		}
 		return retryMW(next)(req)
 	}

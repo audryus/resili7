@@ -52,7 +52,7 @@ func TestWsHedgeWithVariableLatency(t *testing.T) {
 			conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 			return conn, err
 		},
-		Hedge: rws.NewHedgeMiddleware(websocket.DefaultDialer.Dial, 50*time.Millisecond, 2),
+		Hedge: rws.NewHedgeMiddleware(websocket.DefaultDialer.DialContext, 50*time.Millisecond, 2),
 	})
 	if err != nil {
 		t.Fatalf("Client should have been created: %+v", err)
@@ -94,7 +94,7 @@ func TestWsHedgeDisabledWithInvalidParams(t *testing.T) {
 			return &rws.Response{MessageType: websocket.TextMessage, Data: []byte("ok")}, nil
 		},
 		// Invalid parameters: 0 delay or <=1 max attempts disables hedging.
-		Hedge: rws.NewHedgeMiddleware(websocket.DefaultDialer.Dial, 0, 1),
+		Hedge: rws.NewHedgeMiddleware(websocket.DefaultDialer.DialContext, 0, 1),
 	})
 
 	_, err := client.Send(rws.Request{MessageType: websocket.TextMessage, Data: []byte("ok")})
@@ -106,7 +106,7 @@ func TestWsHedgeDisabledWithInvalidParams(t *testing.T) {
 // BenchmarkWsHedge measures the overhead of the hedging middleware itself.
 // Since hedging involves starting goroutines, it is expected to have allocations.
 //
-// BenchmarkWsHedge/Hedge_Overhead-12         	  652580	      1713 ns/op	     232 B/op	       4 allocs/op
+// BenchmarkWsHedge/Hedge_Overhead-12         	  599160	      1872 ns/op	     344 B/op	       6 allocs/op
 func BenchmarkWsHedge(b *testing.B) {
 	okData := []byte("ok")
 	resp := &rws.Response{MessageType: websocket.TextMessage, Data: okData}
@@ -115,7 +115,7 @@ func BenchmarkWsHedge(b *testing.B) {
 		WsHandler: func(r rws.Request) (*rws.Response, error) {
 			return resp, nil
 		},
-		Hedge: rws.NewHedgeMiddleware(websocket.DefaultDialer.Dial, 10*time.Second, 2),
+		Hedge: rws.NewHedgeMiddleware(websocket.DefaultDialer.DialContext, 10*time.Second, 2),
 	})
 
 	req := rws.Request{URL: "/test", MessageType: websocket.TextMessage, Data: okData}

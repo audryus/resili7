@@ -31,7 +31,7 @@ func TestLimiter_AcquireExhaust(t *testing.T) {
 	}
 
 	// Release Permit 1.
-	l.Done(start1, true)
+	l.Done(start1, time.Now().UnixNano(), true)
 
 	// Acquire again - should succeed now that a permit was released.
 	_, ok = l.Acquire(time.Now().UnixNano())
@@ -51,7 +51,7 @@ func TestLimiter_DoneFails(t *testing.T) {
 	}
 
 	// Report failure.
-	l.Done(start, false)
+	l.Done(start, time.Now().UnixNano(), false)
 
 	// The permit should still be freed.
 	_, ok = l.Acquire(time.Now().UnixNano())

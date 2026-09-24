@@ -68,7 +68,7 @@ Execution order is strictly enforced for optimal protection:
 
 ### Controlling fan-out and 429 handling
 
-When both Retry and Hedge are enabled, resili7 now lets you control the amount of concurrent fan-out through the pipeline. Set `RetryHedgeFanoutLimit` to a positive value to allow hedging to remain active while retries are in progress; set it to `0` to disable the combined path and preserve a stricter, lower-fan-out behavior.
+When both Retry and Hedge are enabled, resili7 now lets you control the amount of concurrent fan-out through the pipeline. Set `RetryHedgeFanoutLimit` to a positive value to allow hedging to remain active while retries are in progress; set it to `0` (or leave unset) to run retry alone so the retry policy is never silently dropped.
 
 For HTTP 429 responses, choose an explicit policy with `Retry429Policy`:
 
@@ -81,6 +81,44 @@ This makes the behavior explicit and avoids surprising retry amplification under
 ---
 
 ## Breaking Changes
+
+### Hedge is now context-aware (cancel-aware losers)
+
+Hedged attempts run with a child context that is cancelled once a winner is known. HTTP attempts derive per-attempt request contexts (`req.WithContext`), gRPC attempts derive per-attempt call contexts, and WebSocket dials use `DialContext` — losing attempts abort early instead of running to completion. This costs a small number of allocations per hedged request (see Performance).
+
+`rws.DialConn` changed signature to `func(ctx context.Context, url string, headers http.Header) (*websocket.Conn, *http.Response, error)` (matches `websocket.Dialer.DialContext`). Pass `websocket.DefaultDialer.DialContext` where you previously passed `Dial`. A context-aware `hedge.ExecuteWithResultCtx` is available; the old `hedge.Execute`/`ExecuteWithResult` still work but losers run to completion.
+
+### Retry exhaustion preserves the causal error
+
+`action.Err` now returns `errors.Join(retry.ErrRetry, lastErr)` when the last attempt failed, so `errors.Is(err, retry.ErrRetry)` still signals exhaustion while `status.FromError(err)` (gRPC) or the wrapped `*url.Error` (HTTP) keeps the causal error. This also fixes an inverted condition that previously discarded the gRPC network error entirely.
+
+Error paths now follow connection-close semantics: timeout, budget-exhaustion, and retry-exhaustion return the zero value of the response type, and the retry loop closes bodies of discarded intermediate HTTP responses via `DiscardAttempt`. Callers must not use a response accompanying an error.
+
+### Single `ErrTimeout` sentinel
+
+`retry.ErrTimeout` is now an alias of `timeout.ErrTimeout`. Match either with `errors.Is`.
+
+### Generic retry options
+
+`retry.Option` is now `Option[R any]`, and `NewRetryPolicy[R](...) *RetryPolicy[R]` builds typed policies without casts:
+
+```go
+policy := retry.NewRetryPolicy[*http.Response](
+    retry.WithShouldRetry[*http.Response](rhttp.ShouldRetryDefault),
+)
+```
+
+### Limiter `Done` takes an explicit end timestamp
+
+`Done(start, end int64, success bool)` honors the clock-optimized contract (no hidden `time.Now()` inside). `NewLimiter` validates its options (empty `GainCycle`, non-positive limits/intervals fall back to defaults), guards against `Done`-without-`Acquire` underflow, and sets a finalizer so a forgotten `Close()` no longer leaks the control loop forever — explicit `Close()` is still required.
+
+### Breaker internals unexported
+
+`HalfOpenInFlight` and `Lock`/`Unlock` are now private (`halfOpenInFlight atomic.Bool`, `lock`/`unlock`). Half-open single-flight behavior is unchanged.
+
+### WebSocket session deadline propagates + `MessageType` default applies
+
+The timeout middleware propagates the session deadline to `RequestDeadline` (so retry backoff observes it) and rejects already-expired sessions before executing. `Pipeline.MessageType` is applied to requests that leave it unset (default `TextMessage`).
 
 ### HTTP 429 (Too Many Requests) no longer retried by default
 
@@ -96,13 +134,13 @@ Example migration:
 
 ```go
 // Before (old behavior - 429 retried automatically):
-policy := retry.NewPolicy[*http.Response](
-    retry.WithShouldRetry(rhttp.ShouldRetryDefault),
+policy := retry.NewRetryPolicy[*http.Response](
+    retry.WithShouldRetry[*http.Response](rhttp.ShouldRetryDefault),
 )
 
 // After (opt-in to 429 retries):
-policy := retry.NewPolicy[*http.Response](
-    retry.WithShouldRetry(rhttp.Retry429PolicyFor(rhttp.Retry429Always)),
+policy := retry.NewRetryPolicy[*http.Response](
+    retry.WithShouldRetry[*http.Response](rhttp.Retry429PolicyFor(rhttp.Retry429Always)),
 )
 ```
 
@@ -133,9 +171,9 @@ Benchmark results on a modern CPU (almost all middlewares enabled):
 
 | Protocol | Latency | Memory | Allocs |
 |----------|---------|--------|--------|
-| **HTTP** | ~922 ns/op | 64 B/op | 1 alloc |
-| **gRPC** | ~1,377 ns/op | 304 B/op | 3 allocs |
-| **WebSocket** | ~235 ns/op | 0 B/op | 0 allocs |
+| **HTTP** | ~253 ns/op | 40 B/op | 2 allocs |
+| **gRPC** | ~1,434 ns/op | 416 B/op | 5 allocs |
+| **WebSocket** | ~227 ns/op | 0 B/op | 0 allocs |
 
 Run your own benchmarks:
 

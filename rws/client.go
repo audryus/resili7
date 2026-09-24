@@ -136,5 +136,10 @@ func NewClient(pipeline Pipeline) (*Client, error) {
 		h = pipeline.Limiter(h)
 	}
 
-	return &Client{chain: h}, nil
+	messageType := pipeline.MessageType
+	if messageType == 0 {
+		messageType = websocket.TextMessage
+	}
+
+	return &Client{chain: h, messageType: messageType}, nil
 }

@@ -2,6 +2,7 @@ package rws
 
 import (
 	"errors"
+	"net"
 	"strings"
 	"time"
 
@@ -26,14 +27,32 @@ type TimeoutConfig struct {
 // NewTimeoutMiddleware creates a middleware that enforces WebSocket-native timeouts.
 // It uses SetReadDeadline/SetWriteDeadline on the connection for I/O-level timeout,
 // distinct from HTTP/gRPC logic-level timeout enforcement.
+//
+// The session deadline is propagated to req.RequestDeadline so downstream layers
+// (notably retry backoff) can observe the global deadline. Connection-close
+// semantics: on session expiry the connection is closed and the caller gets a
+// nil response with ErrSessionTimeout — never a partial response.
 func NewTimeoutMiddleware(cfg TimeoutConfig) Middleware {
 	return func(next Handler) Handler {
 		return func(req Request) (*Response, error) {
 			now := time.Now().UnixNano()
-			sessionDeadline := now + int64(cfg.Session)
 
-			// Check session deadline before executing.
-			if cfg.Session > 0 && now > sessionDeadline {
+			var sessionDeadline int64
+			if cfg.Session > 0 {
+				if req.RequestDeadline > 0 && req.RequestDeadline < now+int64(cfg.Session) {
+					// An outer layer already imposed a tighter deadline: honor it.
+					sessionDeadline = req.RequestDeadline
+				} else {
+					sessionDeadline = now + int64(cfg.Session)
+				}
+				// Propagate so the retry layer's deadline clamp can fire.
+				req.RequestDeadline = sessionDeadline
+			} else {
+				sessionDeadline = req.RequestDeadline
+			}
+
+			// Pre-execution check: fail immediately if the session already expired.
+			if sessionDeadline > 0 && now > sessionDeadline {
 				return nil, ErrSessionTimeout
 			}
 
@@ -56,8 +75,9 @@ func NewTimeoutMiddleware(cfg TimeoutConfig) Middleware {
 				return nil, ErrReadTimeout
 			}
 
-			// Check session deadline after execution.
-			if err == nil && cfg.Session > 0 && time.Now().UnixNano() > sessionDeadline {
+			// Post-execution check: a response that finished after the session
+			// deadline is discarded (connection closed) regardless of error.
+			if sessionDeadline > 0 && time.Now().UnixNano() > sessionDeadline {
 				if req.Conn != nil {
 					req.Conn.Close()
 				}
@@ -70,12 +90,17 @@ func NewTimeoutMiddleware(cfg TimeoutConfig) Middleware {
 }
 
 // isTimeoutError checks if the error is a WebSocket or network timeout.
-// This handles both gorilla/websocket errors and underlying TCP errors.
+// It prefers errors.As with net.Error (robust against wrapping) and falls
+// back to message matching for gorilla-specific errors.
 func isTimeoutError(err error) bool {
 	if err == nil {
 		return false
 	}
 	if err == websocket.ErrCloseSent {
+		return true
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
 		return true
 	}
 	msg := err.Error()
