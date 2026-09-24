@@ -51,5 +51,16 @@ jobs:
             echo "An open PR from ${BRANCH} to trunk already exists (#${PR_NUMBER}). Updating title and body..."
             gh pr edit "$PR_NUMBER" --title "$TITLE" --body "$BODY"
           else
-            gh pr create --base trunk --head "$BRANCH" --title "$TITLE" --body "$BODY"
+            if ! OUT=$(gh pr create --base trunk --head "$BRANCH" --title "$TITLE" --body "$BODY" 2>&1); then
+              echo "$OUT"
+              if echo "$OUT" | grep -q "not permitted to create or approve pull requests"; then
+                echo ""
+                echo "REMEDIATION: the repository blocks GitHub Actions from opening PRs."
+                echo "  Repository → Settings → Actions → General → Workflow permissions"
+                echo "  → check 'Allow GitHub Actions to create and approve pull requests' → Save,"
+                echo "  then re-run this job."
+              fi
+              exit 1
+            fi
+            echo "$OUT"
           fi
