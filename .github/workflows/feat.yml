@@ -1,0 +1,55 @@
+name: Feature
+
+on:
+  push:
+    branches:
+      - "feat/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # ──────────────────────────────────────────────
+  # Auto-PR: open/update a PR to trunk with this
+  # branch's commit list. Validation happens in CI
+  # on the pull request itself.
+  # Uses the built-in GITHUB_TOKEN via gh — no
+  # custom secret required.
+  # ──────────────────────────────────────────────
+  auto-pr:
+    runs-on: ubuntu-latest
+    name: Auto PR (feat -> trunk)
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create or update pull request to trunk
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          git fetch origin trunk
+
+          # Commits on this branch that are not on trunk yet
+          LOG=$(git log --reverse --pretty=format:"- %s" origin/trunk..HEAD)
+          if [ -z "$LOG" ]; then
+            echo "No new commits compared to trunk. Nothing to do."
+            exit 0
+          fi
+
+          # Suggested title: subject of the first commit on the branch
+          FIRST_SUBJECT=$(git log --reverse --pretty=format:"%s" origin/trunk..HEAD | head -n 1)
+          TITLE="Auto PR [${BRANCH}]: ${FIRST_SUBJECT}"
+          BODY=$(printf '## Auto-generated pipeline PR\n\n**Branch:** `%s` → `trunk`\n\n### Commits\n\n%s\n' "$BRANCH" "$LOG")
+
+          PR_NUMBER=$(gh pr list --head "$BRANCH" --base trunk --state open --json number --jq '.[0].number // empty')
+
+          if [ -n "$PR_NUMBER" ]; then
+            echo "An open PR from ${BRANCH} to trunk already exists (#${PR_NUMBER}). Updating title and body..."
+            gh pr edit "$PR_NUMBER" --title "$TITLE" --body "$BODY"
+          else
+            gh pr create --base trunk --head "$BRANCH" --title "$TITLE" --body "$BODY"
+          fi

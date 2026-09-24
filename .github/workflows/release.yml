@@ -6,7 +6,10 @@ on:
       - "v*.*.*"
 
 env:
-  VERSION: ${{ forgejo.ref_name }}
+  VERSION: ${{ github.ref_name }}
+
+permissions:
+  contents: write
 
 jobs:
   # ──────────────────────────────────────────────
@@ -15,8 +18,8 @@ jobs:
   # tests run here — just changelog + release.
   # ──────────────────────────────────────────────
   release:
-    runs-on: gpu
-    name: Create Codeberg Release
+    runs-on: ubuntu-latest
+    name: Create GitHub Release
 
     steps:
       - uses: actions/checkout@v4
@@ -48,7 +51,7 @@ jobs:
           cat changelog.txt
 
       - name: Create Release
-        uses: https://github.com/softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2
         with:
           name: ${{ env.VERSION }}
           tag_name: ${{ env.VERSION }}
@@ -60,7 +63,7 @@ jobs:
   # Trigger pkg.go.dev indexing
   # ──────────────────────────────────────────────
   index:
-    runs-on: gpu
+    runs-on: ubuntu-latest
     name: Trigger pkg.go.dev indexing
     needs: release
 
