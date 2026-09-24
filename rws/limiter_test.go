@@ -61,7 +61,7 @@ func TestWsLimiter(t *testing.T) {
 }
 
 // BenchmarkWsLimiter measures the baseline overhead of the adaptive limiter.
-// This is designed to be highly efficient and zero-allocation on the hot path.
+// This is designed to be highly efficient and near-zero-allocation on the hot path.
 //
 // BenchmarkWsLimiter/Limiter_Overhead-12         	14265361	        82.90 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkWsLimiter(b *testing.B) {

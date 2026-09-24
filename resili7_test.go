@@ -18,7 +18,7 @@ import (
 )
 
 // BenchmarkHttpFullStack measures the total performance and memory allocations of the entire pipeline.
-// The goal of resili7 is to achieve near-zero allocations (typically 1-2 per request due to goroutines).
+// The goal of resili7 is to keep allocations near zero (a handful per request: goroutines, timers, cancellation contexts).
 //
 // BenchmarkHttpFullStack/With_All-12               5134759               252.6 ns/op            40 B/op          2 allocs/op
 func BenchmarkHttpFullStack(b *testing.B) {
@@ -68,7 +68,7 @@ func BenchmarkHttpFullStack(b *testing.B) {
 }
 
 // BenchmarkGrpcFullStack measures the total performance and memory allocations of the entire pipeline.
-// The goal of resili7 is to achieve near-zero allocations (typically 1-2 per request due to goroutines).
+// The goal of resili7 is to keep allocations near zero (a handful per request: goroutines, timers, cancellation contexts).
 //
 // BenchmarkGrpcFullStack/With_All-12                 697485              1434 ns/op             416 B/op          5 allocs/op
 func BenchmarkGrpcFullStack(b *testing.B) {
@@ -114,7 +114,7 @@ func BenchmarkGrpcFullStack(b *testing.B) {
 }
 
 // BenchmarkWsFullStack measures the total performance and memory allocations of the entire pipeline.
-// The goal of resili7 is to achieve near-zero allocations (typically 1-2 per request due to goroutines).
+// The goal of resili7 is to keep allocations near zero (a handful per request: goroutines, timers, cancellation contexts).
 // Note: URL is intentionally not set in the request to isolate library overhead.
 // Setting URL triggers actual WebSocket dials, which include HTTP/TCP handshake allocations (see WS dialing overhead test).
 //

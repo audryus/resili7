@@ -221,9 +221,11 @@ func NewHeaderMiddleware(headers http.Header) Middleware {
 
 ## Performance Guidelines
 
-### Zero-Allocation Checklist
+### Near-Zero-Allocation Checklist
 
-Before submitting, verify your implementation:
+Before submitting, verify your implementation keeps hot-path allocations minimal
+(single digits — goroutines, timers, and cancellation contexts cost a little,
+so measure with benchmarks rather than assuming zero):
 
 - [ ] No `new()` or make() for request-scoped data in hot path
 - [ ] No `fmt.Sprintf()` or string concatenation in hot path
@@ -323,7 +325,7 @@ The classifier is one of the innermost middlewares because it needs to see the r
 ## Submitting Changes
 
 1. Ensure all tests pass: `make test`
-2. Verify zero-alloc: `make check-escape`
+2. Verify near-zero-alloc: `make check-escape`
 3. Add benchmarks for new functionality
 4. Update `README.md` examples if adding a new protocol
 5. Write documentation for new packages

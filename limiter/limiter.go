@@ -21,7 +21,7 @@ func Execute[R any, A ResultAction[R]](l *Limiter, action A) (err error) {
 }
 
 // ExecuteWithResult executes the action with concurrency control.
-// Returns (R, error) to support pass-by-value semantics for zero-allocation in the hot path.
+// Returns (R, error) to support pass-by-value semantics for near-zero-allocation in the hot path.
 func ExecuteWithResult[R any, A ResultAction[R]](l *Limiter, action A) (resp R, err error) {
 	// Attempt to acquire a concurrency permit.
 	// Passing req.Now to avoid an extra system time call.

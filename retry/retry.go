@@ -50,7 +50,7 @@ func discard[R any, A ResultAction[R]](action A, resp R) {
 }
 
 // ExecuteWithResult executes the action with retry logic.
-// Returns (R, error) to support pass-by-value semantics for zero-allocation in the hot path.
+// Returns (R, error) to support pass-by-value semantics for near-zero-allocation in the hot path.
 //
 // A nil policy is treated as a single attempt with default backoff. Backoff
 // sleeps are deadline-aware: when RequestDeadline passes during the wait, no

@@ -67,7 +67,7 @@ func Execute[R any, A ResultAction[R]](delay time.Duration, maxAttempts int, act
 }
 
 // ExecuteWithResult executes the action with hedged request logic.
-// Returns (R, error) to support pass-by-value semantics for zero-allocation in the hot path.
+// Returns (R, error) to support pass-by-value semantics for near-zero-allocation in the hot path.
 //
 // This is the fire-and-forget variant: attempts that lose the race run to
 // completion because they receive no cancellation signal. Prefer
@@ -109,7 +109,7 @@ func ExecuteWithResultCtx[R any](ctx context.Context, delay time.Duration, maxAt
 	childCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// Acquire state from pool to maintain zero-allocation goal.
+	// Acquire state from pool to maintain the near-zero-allocation goal.
 	state := statePool.Get().(*hedgeState)
 	state.active.Store(1) // Initial count for the main coordinating loop.
 

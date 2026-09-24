@@ -150,7 +150,7 @@ func TestHttpRetryPolicy(t *testing.T) {
 }
 
 // BenchmarkHttpRetry measures the memory overhead of the retry middleware.
-// This middleware is designed to be zero-allocation during execution.
+// This middleware is designed to be near-zero-allocation during execution.
 //
 // BenchmarkHttpRetry/With_Retry-12         	16394527	        72.16 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkHttpRetry(b *testing.B) {
