@@ -15,10 +15,8 @@ jobs:
   # tests run here — just changelog + release.
   # ──────────────────────────────────────────────
   release:
-    runs-on: self-hosted
+    runs-on: gpu
     name: Create Codeberg Release
-    container:
-      image: node:20-bookworm
 
     steps:
       - uses: actions/checkout@v4
@@ -62,10 +60,8 @@ jobs:
   # Trigger pkg.go.dev indexing
   # ──────────────────────────────────────────────
   index:
-    runs-on: self-hosted
+    runs-on: gpu
     name: Trigger pkg.go.dev indexing
-    container:
-      image: node:20-bookworm
     needs: release
 
     steps:

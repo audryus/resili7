@@ -8,10 +8,7 @@ on:
 
 jobs:
   test:
-    runs-on: self-hosted
-    name: Test
-    container:
-      image: node:20-bookworm
+    runs-on: gpu
 
     steps:
       - uses: actions/checkout@v4
