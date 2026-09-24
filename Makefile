@@ -26,6 +26,14 @@ PROFILE ?= cpu.pprof
 profile-web:
 	go tool pprof -http=:8080 $(PROFILE)
 
+# Pinned govulncheck version so local scans reproduce CI exactly.
+# Override with: make vuln GOVULNCHECK_VERSION=vX.Y.Z
+GOVULNCHECK_VERSION ?= v1.8.0
+
+# Runs the same vulnerability scan as CI against all packages.
+vuln:
+	go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./...
+
 # Cleans test caches and removes profiling artifacts.
 clean:
 	go clean -testcache

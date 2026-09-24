@@ -31,9 +31,7 @@ jobs:
         run: go test -count=1 -v -race -coverprofile=coverage.out ./...
 
       - name: Vulnerability check
-        run: |
-          go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
-          $(go env GOPATH)/bin/govulncheck ./...
+        run: make vuln
 
       - name: Coverage summary
         if: always()
