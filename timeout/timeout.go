@@ -22,7 +22,7 @@ func Execute[R any, A ResultAction[R]](d time.Duration, action A) (err error) {
 }
 
 // ExecuteWithResult executes the action with timeout enforcement.
-// Returns (R, error) to support pass-by-value semantics for zero-allocation in the hot path.
+// Returns (R, error) to support pass-by-value semantics for near-zero-allocation in the hot path.
 //
 // Connection-close semantics: when the deadline has passed the caller gets
 // the zero value of R with ErrTimeout — never a partial response it might

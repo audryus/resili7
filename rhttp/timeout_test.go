@@ -43,9 +43,9 @@ func TestTimeout(t *testing.T) {
 }
 
 // BenchmarkHttpTimeout measures the baseline overhead of the timeout middleware.
-// This middleware is designed to be zero-allocation when the deadline is not exceeded.
+// This middleware is designed to be near-zero-allocation when the deadline is not exceeded.
 //
-// BenchmarkHttpTimeout/Timeout_Overhead-12         	32296514	        37.75 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkHttpTimeout/Timeout_Overhead-12         	 9487036	       121.0 ns/op	      16 B/op	       1 allocs/op
 func BenchmarkHttpTimeout(b *testing.B) {
 	req, _ := http.NewRequest(http.MethodGet, "http://localhost", nil)
 	dummyResp := &http.Response{StatusCode: 200}

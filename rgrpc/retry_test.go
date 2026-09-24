@@ -124,7 +124,7 @@ func TestGrpcRetryPolicy(t *testing.T) {
 }
 
 // BenchmarkGrpcRetry measures the memory overhead of the retry middleware.
-// This middleware is designed to be zero-allocation during execution.
+// This middleware is designed to be near-zero-allocation during execution.
 //
 // BenchmarkGrpcRetry/Retry_Overhead-12         	11231556	       107.5 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkGrpcRetry(b *testing.B) {

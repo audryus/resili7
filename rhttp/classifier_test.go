@@ -137,7 +137,7 @@ func TestClassifierMiddleware(t *testing.T) {
 }
 
 // BenchmarkHttpClassifier measures the baseline overhead of the error classifier.
-// This is designed to be highly efficient and zero-allocation on the hot path.
+// This is designed to be highly efficient and near-zero-allocation on the hot path.
 //
 // BenchmarkHttpClassifier/Classifier_Overhead-12         	33418423	        35.62 ns/op	       0 B/op	       0 allocs/op
 

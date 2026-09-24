@@ -5,7 +5,7 @@ test:
 	go test -count=1 -v ./... 
 	
 # Analyzes memory allocation and heap escapes.
-# This is crucial to verify our "zero-allocation" goal in the hot-path.
+# This is crucial to verify our "near-zero-allocation" goal in the hot-path.
 # We use double -m flags for detailed escape analysis output.
 check-escape:
 	go build -gcflags="-m -m" ./... 2>&1 | grep -v "skip"

@@ -53,7 +53,7 @@ func TestGrpcTimeout(t *testing.T) {
 }
 
 // BenchmarkGrpcTimeout measures the baseline overhead of the timeout middleware.
-// This middleware is designed to be zero-allocation when the deadline is not exceeded.
+// This middleware is designed to be near-zero-allocation when the deadline is not exceeded.
 //
 // BenchmarkGrpcTimeout/Timeout_Overhead-12         	11311341	       106.4 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkGrpcTimeout(b *testing.B) {

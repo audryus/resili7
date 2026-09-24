@@ -9,7 +9,7 @@ import (
 )
 
 // BenchmarkWsCircuitBreak measures the total performance and memory allocations of the circuit breaker middleware.
-// The goal of resili7 is to achieve near-zero allocations (typically 1-2 per request due to goroutines).
+// The goal of resili7 is to keep allocations near zero (a handful per request: goroutines, timers, cancellation contexts).
 //
 // BenchmarkWsCircuitBreak/With_Circuit_Breaker-12         	25469554	        47.32 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkWsCircuitBreak(b *testing.B) {

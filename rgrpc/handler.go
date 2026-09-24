@@ -30,7 +30,7 @@ type Handler func(Request) error
 type Middleware func(Handler) Handler
 
 // action implements the timeout.ResultAction interface for gRPC calls.
-// Using a struct and generics in timeout.ExecuteWithResult helps maintain zero allocation.
+// Using a struct and generics in timeout.ExecuteWithResult helps keep allocations near zero.
 type action struct {
 	h   Handler
 	req Request

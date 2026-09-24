@@ -107,7 +107,7 @@ func TestWsTimeoutSessionDeadline(t *testing.T) {
 }
 
 // BenchmarkWsTimeout measures the baseline overhead of the timeout middleware.
-// This middleware is designed to be zero-allocation when the deadline is not exceeded.
+// This middleware is designed to be near-zero-allocation when the deadline is not exceeded.
 //
 // BenchmarkWsTimeout/Optimized-12         	15207934        79.25 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkWsTimeout(b *testing.B) {

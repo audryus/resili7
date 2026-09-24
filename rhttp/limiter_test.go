@@ -43,7 +43,7 @@ func TestHttpLimiter(t *testing.T) {
 }
 
 // BenchmarkHttpLimiter measures the baseline overhead of the adaptive limiter.
-// This is designed to be highly efficient and zero-allocation on the hot path.
+// This is designed to be highly efficient and near-zero-allocation on the hot path.
 //
 // BenchmarkHttpLimiter/Limiter_Overhead-12         	15625302	        75.28 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkHttpLimiter(b *testing.B) {

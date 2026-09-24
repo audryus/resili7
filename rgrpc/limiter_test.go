@@ -60,7 +60,7 @@ func TestGrpcLimiter(t *testing.T) {
 }
 
 // BenchmarkGrpcLimiter measures the baseline overhead of the adaptive limiter.
-// This is designed to be highly efficient and zero-allocation on the hot path.
+// This is designed to be highly efficient and near-zero-allocation on the hot path.
 //
 // BenchmarkGrpcLimiter/Limiter_Overhead-12         	10465168	       114.4 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkGrpcLimiter(b *testing.B) {
