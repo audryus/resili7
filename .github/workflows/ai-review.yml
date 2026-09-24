@@ -68,42 +68,43 @@ jobs:
           fi
 
           # --- Diff budget: the full-branch diff can exceed num_ctx (8192) ---
-          # and make generation crawl. Cap it, flagging the truncation.
+          # and make generation crawl. Cap the diff FILE (never hold the
+          # whole diff in argv: a single >128KB argument fails exec with
+          # E2BIG "Argument list too long").
           DIFF_MAX_CHARS=12000
-          DIFF_RAW="$(cat /tmp/diff.txt)"
-          echo "Diff size: $(wc -l < /tmp/diff.txt) lines, ${#DIFF_RAW} chars"
-          TRUNCATED=""
-          if [ "${#DIFF_RAW}" -gt "$DIFF_MAX_CHARS" ]; then
-            DIFF="$(printf '%s' "$DIFF_RAW" | head -c "$DIFF_MAX_CHARS")"
-            TRUNCATED=$'\n\n[NOTE: diff truncated to fit the model context window; later files were not reviewed.]'
-          else
-            DIFF="$DIFF_RAW"
+          echo "Diff size: $(wc -l < /tmp/diff.txt) lines, $(wc -c < /tmp/diff.txt) chars"
+          head -c "$DIFF_MAX_CHARS" /tmp/diff.txt > /tmp/diff-cap.txt
+          if [ "$(wc -c < /tmp/diff.txt)" -gt "$DIFF_MAX_CHARS" ]; then
+            printf '\n\n[NOTE: diff truncated to fit the model context window; later files were not reviewed.]' >> /tmp/diff-cap.txt
           fi
 
           # NOTE: /api/generate is used instead of /api/chat because the
           # chat endpoint parses model output as tool-call XML and crashes
           # on responses containing <function>/<parameter> tags
           # ("XML syntax error: element <parameter> closed by </function>").
-          INSTRUCTIONS="Review the following git diff.
+          cat > /tmp/instructions.txt <<'EOF'
+          Review the following git diff.
           Review ONLY the modified lines.
           Do not comment on unchanged code.
           You have NO tools and CANNOT explore, read files, or run commands.
           Everything you need is in the diff below.
           Reply ONLY with the findings in the exact markdown format specified
           by the system prompt (## <Severity> - <title>).
-          If there are no significant findings, reply with an empty response."
+          If there are no significant findings, reply with an empty response.
 
-          DIFF="$(cat /tmp/diff.txt)"
-          USER_MSG="$(printf '%s\n\nGit diff:\n\n%s%s' "$(sed 's/^          //' <<<"$INSTRUCTIONS")" "$DIFF" "$TRUNCATED")"
+          Git diff:
+          EOF
 
+          # --rawfile slurps file content: no giant argv, no E2BIG.
           jq -n \
             --rawfile system .github/ai-review-prompt.md \
-            --arg user "$USER_MSG" \
+            --rawfile instr /tmp/instructions.txt \
+            --rawfile diff /tmp/diff-cap.txt \
             '{
               model: $ENV.MODEL,
               stream: false,
               system: $system,
-              prompt: $user,
+              prompt: ($instr + "\n" + $diff),
               options: {
                 temperature: 0.2,
                 num_ctx: 8192,

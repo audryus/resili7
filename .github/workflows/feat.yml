@@ -32,11 +32,11 @@ jobs:
 
       - name: Create or update pull request to trunk
         env:
-          GH_TOKEN: ${{ secrets.TOKEN }}
+          GH_TOKEN: ${{ secrets.TOKEN || secrets.GH_TOKEN }}
           BRANCH: ${{ github.ref_name }}
         run: |
           if [ -z "$GH_TOKEN" ]; then
-            echo "Missing repository secret TOKEN (a personal access token with 'repo' scope)."
+            echo "Missing secret TOKEN (or GH_TOKEN): a personal access token with 'repo' scope."
             echo "Create one at GitHub → Settings → Developer settings → Personal access tokens,"
             echo "then add it at Repository → Settings → Secrets and variables → Actions → New repository secret."
             exit 1
