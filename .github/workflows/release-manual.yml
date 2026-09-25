@@ -4,6 +4,11 @@ name: Manual Release
 # Run it from the Actions tab ("Run workflow") and type the version.
 # It validates trunk, creates the annotated tag and pushes it —
 # pushing the tag triggers the Release workflow (changelog + GH release).
+#
+# REQUIRES a personal access token in secrets.TOKEN (or secrets.GH_TOKEN):
+# pushes authenticated with the default GITHUB_TOKEN do NOT trigger other
+# workflows (GitHub loop protection), so pushing the tag with GITHUB_TOKEN
+# would silently skip the Release workflow entirely.
 
 on:
   workflow_dispatch:
@@ -29,10 +34,23 @@ jobs:
 
     steps:
       # Always release from trunk, like `make release` (which checks it out first).
+      # Checkout uses the PAT (not GITHUB_TOKEN) so the tag push below triggers
+      # the Release workflow — see the header comment.
       - uses: actions/checkout@v4
         with:
           ref: trunk
           fetch-depth: 0   # full history + tags for the duplicate-tag check
+          token: ${{ secrets.TOKEN || secrets.GH_TOKEN }}
+
+      - name: Check release token is configured
+        run: |
+          if [ -z "${{ secrets.TOKEN || secrets.GH_TOKEN }}" ]; then
+            echo "Missing secret TOKEN (or GH_TOKEN): a personal access token with 'repo' scope."
+            echo "Without it the tag push uses GITHUB_TOKEN, which does NOT trigger the Release workflow."
+            echo "Create one at GitHub → Settings → Developer settings → Personal access tokens,"
+            echo "then add it at Repository → Settings → Secrets and variables → Actions → New repository secret."
+            exit 1
+          fi
 
       - name: Set up Go
         uses: actions/setup-go@v5
